@@ -15,6 +15,8 @@ sealed class Screen {
     object Settings : Screen()
     object TwoFactorSetup : Screen()
     object Generate : Screen()
+    object History : Screen()
+    object Account : Screen()
 }
 
 class MainScreenViewModel : ViewModel() {
@@ -45,10 +47,10 @@ class MainScreenViewModel : ViewModel() {
     fun handleMenuItemClick(label: String, closeDrawer: () -> Unit) {
         viewModelScope.launch {
             closeDrawer()
-            if (label == "Pengaturan Aplikasi") {
-                navigateTo(Screen.Settings)
-            } else {
-                _snackbarEvent.emit("(Dalam Proses Pengembangan)")
+            when (label) {
+                "Pengaturan Aplikasi" -> navigateTo(Screen.Settings)
+                "Pengaturan Akun" -> navigateTo(Screen.Account)
+                else -> _snackbarEvent.emit("(Dalam Proses Pengembangan)")
             }
         }
     }

@@ -21,6 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.rememberAsyncImagePainter
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import com.axoloth.captaggenerator.logic.AccountViewModel
+import com.axoloth.captaggenerator.logic.SettingScreenViewModel
+import com.axoloth.captaggenerator.screen.SettingScreenViewModelFactory
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 
 // Colors to match the side menu design
@@ -33,7 +41,12 @@ private val MenuIconPurple = Color(0xFFBB86FC)
 @Composable
 fun SideMenuContent(
     onClose: () -> Unit = {},
-    onItemClick: (String) -> Unit = {}
+    onItemClick: (String) -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    settingViewModel: SettingScreenViewModel = viewModel(
+        factory = SettingScreenViewModelFactory(LocalContext.current)
+    ),
+    accountViewModel: AccountViewModel = viewModel()
 ) {
     Box(
         modifier = Modifier
@@ -83,26 +96,44 @@ fun SideMenuContent(
             // Header: User Profile
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onProfileClick() }
+                    .padding(vertical = 16.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .size(60.dp)
-                        .background(Color.Gray.copy(alpha = 0.3f), CircleShape),
+                        .clip(CircleShape)
+                        .background(Color.Gray.copy(alpha = 0.3f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(40.dp))
+                    if (accountViewModel.profileImageUri != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(accountViewModel.profileImageUri),
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
-                        text = "Warung Kopi Jaya",
+                        text = accountViewModel.userName,
                         color = MenuTextPrimary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "user UMKM profile",
+                        text = "Kategori: ${accountViewModel.category}",
                         color = MenuTextSecondary,
                         fontSize = 14.sp
                     )

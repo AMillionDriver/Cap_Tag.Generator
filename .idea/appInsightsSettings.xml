@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.axoloth.captaggenerator" />
+                  <option name="mobileSdkAppId" value="1:207437685884:android:92b423a39c973ff2fd55f9" />
+                  <option name="projectId" value="studio-3744861515-befd0" />
+                  <option name="projectNumber" value="207437685884" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

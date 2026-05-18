@@ -39,13 +39,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.SettingScreenViewModel
+import com.axoloth.captaggenerator.logic.HistoryViewModel
+import com.axoloth.captaggenerator.logic.fragment.HistoryManager
 import com.axoloth.captaggenerator.screen.fragment.SideMenuContent
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+import com.axoloth.captaggenerator.logic.AccountViewModel
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
 import com.axoloth.captaggenerator.screen.GenerateScreen
+import com.axoloth.captaggenerator.screen.fragment.AccountScreen
+import com.axoloth.captaggenerator.logic.fragment.HistoryItem as ActivityData
 
 val ColorIconCyan = Color(0xCCA6A2A6)
 val ColorIconDf = Color(0xCC6400FF)
@@ -66,6 +71,8 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val settingViewModel: SettingScreenViewModel = viewModel(
         factory = SettingScreenViewModelFactory(LocalContext.current)
     )
+    
+    val accountViewModel: AccountViewModel = viewModel()
 
     // Handle Snackbar Events
     LaunchedEffect(Unit) {
@@ -101,6 +108,19 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     onBackClick = { viewModel.navigateTo(Screen.Main) }
                 )
             }
+            is Screen.History -> {
+                BackHandler { viewModel.navigateTo(Screen.Main) }
+                HistoryScreen(
+                    onBackClick = { viewModel.navigateTo(Screen.Main) }
+                )
+            }
+            is Screen.Account -> {
+                BackHandler { viewModel.navigateTo(Screen.Main) }
+                AccountScreen(
+                    onBackClick = { viewModel.navigateTo(Screen.Main) },
+                    viewModel = accountViewModel
+                )
+            }
             is Screen.Main -> {
                 BackHandler {
                     val currentTime = System.currentTimeMillis()
@@ -113,6 +133,8 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                 }
                 MainDashboard(
                     viewModel = viewModel,
+                    settingViewModel = settingViewModel,
+                    accountViewModel = accountViewModel,
                     drawerState = drawerState,
                     snackbarHostState = snackbarHostState,
                     onMenuClick = { scope.launch { drawerState.open() } },
@@ -130,11 +152,14 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
 @Composable
 fun MainDashboard(
     viewModel: MainScreenViewModel,
+    settingViewModel: SettingScreenViewModel,
+    accountViewModel: AccountViewModel,
     drawerState: DrawerState,
     snackbarHostState: SnackbarHostState,
     onMenuClick: () -> Unit,
     onMenuItemClick: (String) -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -145,8 +170,16 @@ fun MainDashboard(
         drawerState = drawerState,
         drawerContent = {
             SideMenuContent(
-                onClose = { onMenuClick() },
-                onItemClick = onMenuItemClick
+                onClose = { scope.launch { drawerState.close() } },
+                onItemClick = onMenuItemClick,
+                onProfileClick = {
+                    scope.launch {
+                        drawerState.close()
+                        viewModel.navigateTo(Screen.Account)
+                    }
+                },
+                settingViewModel = settingViewModel,
+                accountViewModel = accountViewModel
             )
         },
         gesturesEnabled = true
@@ -162,7 +195,8 @@ fun MainDashboard(
                         } else {
                             galleryLauncher.launch("image/*")
                         }
-                    }
+                    },
+                    onHistoryClick = { viewModel.navigateTo(Screen.History) }
                 ) 
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -192,8 +226,21 @@ fun MainDashboard(
                     )
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
-                items(recentActivities) { activity ->
-                    ActivityItem(activity)
+                
+                if (HistoryManager.historyItems.isEmpty()) {
+                    item {
+                        Text(
+                            text = "Belum ada aktivitas terbaru",
+                            color = Color.Gray,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    items(HistoryManager.historyItems.take(3)) { activity ->
+                        ActivityItem(activity)
+                    }
                 }
             }
         }
@@ -407,7 +454,8 @@ fun ActivityItem(activity: ActivityData) {
 @Composable
 fun CustomBottomNav(
     isImageSelected: Boolean = false,
-    onFabClick: () -> Unit = {}
+    onFabClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -428,7 +476,10 @@ fun CustomBottomNav(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { /* Already on Home */ }
+                ) {
                     Icon(
                         Icons.Outlined.Home,
                         contentDescription = null,
@@ -439,7 +490,10 @@ fun CustomBottomNav(
 
                 Spacer(modifier = Modifier.width(48.dp)) // Space for FAB
 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.clickable { onHistoryClick() }
+                ) {
                     Icon(
                         Icons.Outlined.History,
                         contentDescription = null,
@@ -491,18 +545,6 @@ fun CustomBottomNav(
         }
     }
 }
-
-data class ActivityData(
-    val title: String,
-    val time: String,
-    val icon: ImageVector
-)
-
-val recentActivities = listOf(
-    ActivityData("Caption Keripik Pedas #Gacor", "7 minutes ago", Icons.Default.Image),
-    ActivityData("Promo Sambal #Viral", "3 minutes ago", Icons.Default.Percent),
-    ActivityData("Ide Konten Sepatu", "2 minutes ago", Icons.Default.Lightbulb)
-)
 
 @Preview(showBackground = true, backgroundColor = 0xFF0D1117)
 @Composable

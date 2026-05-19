@@ -67,3 +67,35 @@ Proyek **Cap&Tag Generator** ini dibangun menggunakan standar pengembangan Andro
 * **KSP (Kotlin Symbol Processing)** — Pengganti KAPT generasi baru yang jauh lebih cepat untuk memproses anotasi kode pada *Room compiler*.
 * **CMake** — Alat eksternal untuk mengompilasi file kode sumber C++ (`native-lib.cpp`) menjadi arsitektur file binary Android.
 
+
+## 🚀 Cara Memulai (Getting Started)
+
+Untuk menjalankan atau menguji proyek ini di komputer lokal Anda, silakan ikuti panduan langkah demi langkah di bawah ini:
+
+### 1. Kloning Repositori (Clone Repository)
+Buka terminal atau Git Bash Anda, lalu jalankan perintah berikut:
+```bash
+git clone https://github.com
+```
+
+### 2. Membuka Proyek di Android Studio
+1. Jalankan **Android Studio** (Disarankan versi Ladybug atau yang lebih baru).
+2. Pilih menu **File > Open**, lalu arahkan ke folder proyek hasil kloning tadi.
+3. Tunggu hingga proses **Gradle Sync** selesai secara otomatis.
+
+### 3. Konfigurasi C++ & NDK (Penting)
+Pastikan Anda sudah menginstal **NDK** dan **CMake** melalui SDK Manager di Android Studio Anda agar proyek dapat mengompilasi library keamanan native (`native-lib.cpp`) dengan sukses tanpa kendala.
+
+---
+
+## 📦 Unduh Aplikasi (Download Release APK)
+
+Jika Anda hanya ingin langsung mencoba aplikasi ini di perangkat Android Anda tanpa harus melakukan *compile* kode sumber:
+
+1. Pergi ke tab **[Releases](https://github.com)** di sebelah kanan halaman repositori ini.
+2. Cari versi rilis terbaru (misalnya `v1.0.0-alpha`).
+3. Unduh file `app-release.apk`.
+4. Instal file APK tersebut di HP Android Anda (Pastikan Anda telah mengizinkan instalasi dari sumber tidak dikenal di pengaturan keamanan HP).
+
+> **Catatan Pengujian:** Aplikasi ini telah diuji dan dioptimasi penuh agar berjalan sangat lancar, responsif, dan hemat memori pada perangkat berspesifikasi menengah ke bawah seperti **Oppo A16**.
+

@@ -1,4 +1,4 @@
-<h3 align="center">Aplikasi Cap&Tag Generator - Tampilan Antarmuka</h3>
+<h3 align="center">Aplikasi LapakAi - Tampilan Antarmuka</h3>
 
 <table align="center">
   <tr>
@@ -30,3 +30,40 @@
     </td>
   </tr>
 </table>
+
+## 🛠️ Tech Stack & Libraries
+
+Proyek **Cap&Tag Generator** ini dibangun menggunakan standar pengembangan Android modern (*Modern Android Development*) untuk memastikan performa yang optimal, aman, dan responsif.
+
+### 1. Core Language & UI Framework
+* **Kotlin (v2.2.10)** — Bahasa pemrograman utama yang modern, aman (*null-safety*), dan dioptimasi penuh untuk pengembangan Android.
+* **Jetpack Compose** — Framework UI deklaratif modern untuk membangun antarmuka aplikasi yang reaktif tanpa menggunakan XML jadul.
+* **Material Design 3 (M3)** — Standar desain visual terbaru dari Google untuk komponen UI yang adaptif, dinamis, dan estetik.
+
+### 2. Architecture & Concurrency
+* **MVVM (Model-View-ViewModel)** — Pola arsitektur standar industri untuk memisahkan logika bisnis aplikasi dengan layer tampilan (*UI*).
+* **Kotlin Coroutines & Flow** — Manajemen *thread* asinkron untuk menangani proses berat (seperti enkripsi database dan scan OCR) di latar belakang (*background thread*) agar UI tetap mulus tanpa *lag*.
+* **Jetpack Lifecycle** — Mengelola siklus hidup komponen Android secara aman untuk mencegah kebocoran memori (*memory leaks*).
+
+### 3. Data Storage & Advanced Security
+* **Room Persistence (v2.8.4)** — Lapisan enkapsulasi di atas SQLite untuk penyimpanan data lokal yang terstruktur dan stabil.
+* **SQLCipher (v4.6.1)** — Komponen enkripsi tingkat militer (**AES-256**) yang mengunci seluruh file database basis data lokal secara total.
+* **C++ (Android NDK/JNI)** — Digunakan sebagai *"Native Brankas Rahasia"* untuk menyembunyikan kunci enkripsi dan *salt* database di level kode mesin binary (`.so`) agar tidak bisa di-decompile.
+* **Android Keystore System** — Mengamankan dan membungkus (*wrapping*) kunci kriptografi di dalam perangkat keras perangkat (TEE/SE) agar tidak dapat diekstrak oleh malware.
+
+### 4. Intelligence (AI & OCR)
+* **Google ML Kit (Text Recognition)** — Fitur OCR cerdas untuk mengekstrak teks dari foto. Menggunakan opsi *Unbundled Api* (via Google Play Services) sehingga ukuran file APK tetap sangat kecil (~260 KB).
+* **Firebase (BoM v34.13.0)**
+  * `Firebase Analytics` — Memantau aktivitas dan interaksi pengguna di dalam aplikasi.
+  * `Firebase Remote Config` — *(Rencana)* Untuk mengambil dan memperbarui konfigurasi atau API Key AI secara dinamis dari cloud tanpa update aplikasi.
+
+### 5. Utilities & Networking
+* **Coil (Compose Edition)** — Library pemuat gambar (*image loader*) berbasis Coroutines yang super ringan untuk memuat foto produk di Jetpack Compose.
+* **Biometric Auth** — Menangani popup otentikasi sidik jari atau pemindaian wajah (*Biometric Prompt*) sebelum memberikan akses ke data sensitif.
+* **ZXing Android Embedded** — Library pendukung untuk pemindaian dan pembuatan *Barcode/QR Code* jika dibutuhkan di masa mendatang.
+
+### 6. Build Tools & Compilers
+* **Gradle (Kotlin DSL)** — Manajemen dependensi dan konfigurasi sistem build proyek menggunakan bahasa Kotlin penuh.
+* **KSP (Kotlin Symbol Processing)** — Pengganti KAPT generasi baru yang jauh lebih cepat untuk memproses anotasi kode pada *Room compiler*.
+* **CMake** — Alat eksternal untuk mengompilasi file kode sumber C++ (`native-lib.cpp`) menjadi arsitektur file binary Android.
+

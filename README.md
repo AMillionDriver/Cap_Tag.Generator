@@ -1,17 +1,32 @@
-<table>
+<h3 align="center">Aplikasi Cap&Tag Generator - Tampilan Antarmuka</h3>
+
+<table align="center">
   <tr>
-    <th>Halaman Utama</th>
-    <th>Halaman Persiapan Generate</th>
-    <th>Halaman Settings</th>
-    <th>Halaman Account</th>
+    <th width="25%" align="center">📱 Halaman Utama</th>
+    <th width="25%" align="center">⚙️ Persiapan Generate</th>
+    <th width="25%" align="center">🔧 Halaman Settings</th>
+    <th width="25%" align="center">👤 Halaman Account</th>
   </tr>
-  <tr>
-    <td>
-      <img width="720" height="1600" alt="Screenshot_20260519_101842" src="https://github.com/user-attachments/assets/8b24ba73-b646-45f4-ad08-fc869857de8c" />
-      <img width="720" height="1600" alt="Screenshot_20260519_101853" src="https://github.com/user-attachments/assets/3562195b-61ff-4fc1-a13a-f08ff22ad792" />
+  <tr valign="top">
+    <!-- Kolom 1: Halaman Utama (Dua gambar disejajarkan ke bawah) -->
+    <td align="center">
+      <img src="https://github.com" width="100%" alt="Home Screen 1" />
+      <br/><br/>
+      <img src="https://github.com" width="100%" alt="Home Screen 2" />
     </td>
-    <td>
-      <img width="720" height="1600" alt="Screenshot_20260519_102132" src="https://github.com/user-attachments/assets/735fb9a7-1efc-4cfa-8808-988eea3e40dc" />
+    <!-- Kolom 2: Halaman Persiapan Generate -->
+    <td align="center">
+      <img src="https://github.com" width="100%" alt="Preparation Screen" />
+    </td>
+    <!-- Kolom 3: Halaman Settings (Dua gambar disejajarkan ke bawah) -->
+    <td align="center">
+      <img src="https://github.com" width="100%" alt="Settings Screen 1" />
+      <br/><br/>
+      <img src="https://github.com" width="100%" alt="Settings Screen 2" />
+    </td>
+    <!-- Kolom 4: Halaman Account -->
+    <td align="center">
+      <img src="https://github.com" width="100%" alt="Account Screen" />
     </td>
   </tr>
 </table>

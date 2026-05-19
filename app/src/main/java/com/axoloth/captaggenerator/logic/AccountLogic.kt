@@ -9,6 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 data class AccountHistoryItem(
     val title: String,
@@ -17,7 +22,10 @@ data class AccountHistoryItem(
     val iconBackgroundColor: Color
 )
 
-class AccountViewModel : ViewModel() {
+class AccountViewModel(private val repository: UserRepository) : ViewModel() {
+    private val _user = MutableStateFlow<User?>(null)
+    val user: StateFlow<User?> = _user
+
     var userName by mutableStateOf("Rizki Pratama")
         private set
     
@@ -26,6 +34,18 @@ class AccountViewModel : ViewModel() {
         
     val businessName = "Toko Sepatu Berkah"
     val category = "Perdagangan & Eceran"
+
+    init {
+        viewModelScope.launch {
+            repository.getUser().collectLatest { userData ->
+                _user.value = userData
+                userData?.let {
+                    userName = it.userName
+                    profileImageUri = it.profileImageUri?.let { uriString -> Uri.parse(uriString) }
+                }
+            }
+        }
+    }
 
     val accountHistory = listOf(
         AccountHistoryItem(
@@ -56,11 +76,18 @@ class AccountViewModel : ViewModel() {
 
     fun updateUserName(newName: String) {
         if (newName.isNotBlank()) {
-            userName = newName
+            val currentUser = _user.value ?: User(newName, businessName, category, profileImageUri?.toString())
+            viewModelScope.launch {
+                repository.saveUser(currentUser.copy(userName = newName))
+            }
         }
     }
 
     fun updateProfileImage(uri: Uri?) {
-        profileImageUri = uri
+        val currentUser = _user.value ?: User(userName, businessName, category, uri?.toString())
+        viewModelScope.launch {
+            repository.saveUser(currentUser.copy(profileImageUri = uri?.toString()))
+        }
     }
 }
+

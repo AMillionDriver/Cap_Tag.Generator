@@ -10,6 +10,9 @@ lifecycleViewmodelCompose = "2.9.4"
 googleauth = "1.5.0"
 zxing = "3.5.3"
 kotlin = "2.2.10"
+ksp = "2.2.10-2.0.2"
+room = "2.8.4"
+sqlcipher = "4.5.4"
 composeBom = "2026.02.01"
 composeIconsExtended = "1.7.8"
 
@@ -32,8 +35,13 @@ androidx-compose-material3 = { group = "androidx.compose.material3", name = "mat
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "composeIconsExtended" }
 googleauth = { group = "com.warrenstrange", name = "googleauth", version.ref = "googleauth" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+sqlcipher-android = { group = "net.zetetic", name = "android-database-sqlcipher", version.ref = "sqlcipher" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 

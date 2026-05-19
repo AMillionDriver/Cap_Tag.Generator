@@ -47,6 +47,10 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 import com.axoloth.captaggenerator.logic.AccountViewModel
+import com.axoloth.captaggenerator.logic.AccountViewModelFactory
+import com.axoloth.captaggenerator.logic.UserRepository
+import com.axoloth.captaggenerator.room.AppDatabase
+import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
 import com.axoloth.captaggenerator.screen.GenerateScreen
 import com.axoloth.captaggenerator.screen.fragment.AccountScreen
@@ -67,83 +71,95 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
     
+    // Database and Repository initialization
+    var isDatabaseReady by remember { mutableStateOf(false) }
+    val database = remember { AppDatabase.getInstance(context) }
+    val userRepository = remember { UserRepository(database.userDao()) }
+
+    LaunchedEffect(Unit) {
+        // Safe open database
+        val safeDb = AppDatabase.getSafeInstance(context)
+        if (safeDb != null) {
+            isDatabaseReady = true
+        }
+    }
+
     // Inisialisasi SettingViewModel di level MainScreen agar state-nya tersinkronisasi
     val settingViewModel: SettingScreenViewModel = viewModel(
         factory = SettingScreenViewModelFactory(LocalContext.current)
     )
     
-    val accountViewModel: AccountViewModel = viewModel()
-
-    // Handle Snackbar Events
-    LaunchedEffect(Unit) {
-        viewModel.snackbarEvent.collectLatest { message ->
-            snackbarHostState.showSnackbar(message)
-        }
-    }
+    val accountViewModel: AccountViewModel = viewModel(
+        factory = AccountViewModelFactory(userRepository)
+    )
 
     CapTagGeneratorTheme(darkTheme = true) {
-        when (viewModel.currentScreen) {
-            is Screen.Settings -> {
-                BackHandler { viewModel.navigateTo(Screen.Main) }
-                SettingScreen(
-                    onBackClick = { viewModel.navigateTo(Screen.Main) },
-                    mainViewModel = viewModel,
-                    settingViewModel = settingViewModel
-                )
-            }
-            is Screen.TwoFactorSetup -> {
-                BackHandler { viewModel.navigateTo(Screen.Settings) }
-                TwoFactorScreen(
-                    onBackClick = { viewModel.navigateTo(Screen.Settings) },
-                    onSaveSuccess = { 
-                        settingViewModel.updateTwoFactorStatus(true)
-                        viewModel.navigateTo(Screen.Settings) 
-                    }
-                )
-            }
-            is Screen.Generate -> {
-                BackHandler { viewModel.navigateTo(Screen.Main) }
-                GenerateScreen(
-                    selectedImageUri = viewModel.selectedImageUri,
-                    onBackClick = { viewModel.navigateTo(Screen.Main) }
-                )
-            }
-            is Screen.History -> {
-                BackHandler { viewModel.navigateTo(Screen.Main) }
-                HistoryScreen(
-                    onBackClick = { viewModel.navigateTo(Screen.Main) }
-                )
-            }
-            is Screen.Account -> {
-                BackHandler { viewModel.navigateTo(Screen.Main) }
-                AccountScreen(
-                    onBackClick = { viewModel.navigateTo(Screen.Main) },
-                    viewModel = accountViewModel
-                )
-            }
-            is Screen.Main -> {
-                BackHandler {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastBackPressTime < 2000) {
-                        (context as? Activity)?.finish()
-                    } else {
-                        lastBackPressTime = currentTime
-                        Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
-                    }
+        if (!isDatabaseReady) {
+            SplashDatabaseScreen()
+        } else {
+            when (viewModel.currentScreen) {
+                is Screen.Settings -> {
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    SettingScreen(
+                        onBackClick = { viewModel.navigateTo(Screen.Main) },
+                        mainViewModel = viewModel,
+                        settingViewModel = settingViewModel
+                    )
                 }
-                MainDashboard(
-                    viewModel = viewModel,
-                    settingViewModel = settingViewModel,
-                    accountViewModel = accountViewModel,
-                    drawerState = drawerState,
-                    snackbarHostState = snackbarHostState,
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                    onMenuItemClick = { label ->
-                        viewModel.handleMenuItemClick(label) {
-                            scope.launch { drawerState.close() }
+                is Screen.TwoFactorSetup -> {
+                    BackHandler { viewModel.navigateTo(Screen.Settings) }
+                    TwoFactorScreen(
+                        onBackClick = { viewModel.navigateTo(Screen.Settings) },
+                        onSaveSuccess = { 
+                            settingViewModel.updateTwoFactorStatus(true)
+                            viewModel.navigateTo(Screen.Settings) 
+                        }
+                    )
+                }
+                is Screen.Generate -> {
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    GenerateScreen(
+                        selectedImageUri = viewModel.selectedImageUri,
+                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                    )
+                }
+                is Screen.History -> {
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    HistoryScreen(
+                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                    )
+                }
+                is Screen.Account -> {
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    AccountScreen(
+                        onBackClick = { viewModel.navigateTo(Screen.Main) },
+                        viewModel = accountViewModel
+                    )
+                }
+                is Screen.Main -> {
+                    BackHandler {
+                        val currentTime = System.currentTimeMillis()
+                        if (currentTime - lastBackPressTime < 2000) {
+                            (context as? Activity)?.finish()
+                        } else {
+                            lastBackPressTime = currentTime
+                            Toast.makeText(context, "Tekan sekali lagi untuk keluar", Toast.LENGTH_SHORT).show()
                         }
                     }
-                )
+                    MainDashboard(
+                        viewModel = viewModel,
+                        settingViewModel = settingViewModel,
+                        accountViewModel = accountViewModel,
+                        drawerState = drawerState,
+                        snackbarHostState = snackbarHostState,
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onMenuItemClick = { label ->
+                            viewModel.handleMenuItemClick(label) {
+                                scope.launch { drawerState.close() }
+                            }
+                        }
+                    )
+                }
             }
         }
     }

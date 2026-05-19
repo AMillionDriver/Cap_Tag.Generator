@@ -75,7 +75,7 @@ Untuk menjalankan atau menguji proyek ini di komputer lokal Anda, silakan ikuti 
 ### 1. Kloning Repositori (Clone Repository)
 Buka terminal atau Git Bash Anda, lalu jalankan perintah berikut:
 ```bash
-git clone https://github.com
+git clone https://github.com/AMillionDriver/Cap_Tag.Generator
 ```
 
 ### 2. Membuka Proyek di Android Studio

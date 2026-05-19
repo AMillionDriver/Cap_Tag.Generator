@@ -43,10 +43,18 @@ private val GenerateSecondaryText = Color(0xFF8E8E93)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenerateScreen(
-    selectedImageUri: Uri?,
+    selectedImageUri: android.net.Uri?,
     onBackClick: () -> Unit,
+    ocrText: String = "",
     viewModel: GenerateScreenViewModel = viewModel()
 ) {
+    // Inisialisasi awal jika ada teks dari OCR
+    androidx.compose.runtime.LaunchedEffect(ocrText) {
+        if (ocrText.isNotBlank() && viewModel.productModel.isBlank()) {
+            viewModel.productModel = ocrText
+        }
+    }
+
     CapTagGeneratorTheme(darkTheme = true) {
         Scaffold(
             topBar = {

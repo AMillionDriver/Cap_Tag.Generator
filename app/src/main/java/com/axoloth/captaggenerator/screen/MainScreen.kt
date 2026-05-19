@@ -77,10 +77,12 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val userRepository = remember { UserRepository(database.userDao()) }
 
     LaunchedEffect(Unit) {
-        // Safe open database
-        val safeDb = AppDatabase.getSafeInstance(context)
-        if (safeDb != null) {
-            isDatabaseReady = true
+        // Safe open database on IO thread
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val safeDb = AppDatabase.getSafeInstance(context)
+            if (safeDb != null) {
+                isDatabaseReady = true
+            }
         }
     }
 
@@ -117,10 +119,12 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     )
                 }
                 is Screen.Generate -> {
+                    val ocrText = (viewModel.currentScreen as? Screen.Generate)?.ocrText ?: ""
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     GenerateScreen(
                         selectedImageUri = viewModel.selectedImageUri,
-                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                        onBackClick = { viewModel.navigateTo(Screen.Main) },
+                        ocrText = ocrText
                     )
                 }
                 is Screen.History -> {
@@ -175,6 +179,7 @@ fun MainDashboard(
     onMenuClick: () -> Unit,
     onMenuItemClick: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -205,9 +210,10 @@ fun MainDashboard(
             bottomBar = { 
                 CustomBottomNav(
                     isImageSelected = viewModel.selectedImageUri != null,
+                    isProcessing = viewModel.isProcessingOcr,
                     onFabClick = {
                         if (viewModel.selectedImageUri != null) {
-                            viewModel.startGenerating()
+                            viewModel.startGenerating(context)
                         } else {
                             galleryLauncher.launch("image/*")
                         }
@@ -470,6 +476,7 @@ fun ActivityItem(activity: ActivityData) {
 @Composable
 fun CustomBottomNav(
     isImageSelected: Boolean = false,
+    isProcessing: Boolean = false,
     onFabClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {}
 ) {
@@ -479,7 +486,7 @@ fun CustomBottomNav(
             .height(100.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Background shape for bottom nav
+        // ... (rest of the Surface)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -543,18 +550,30 @@ fun CustomBottomNav(
                         ),
                         shape = CircleShape
                     )
-                    .clickable { onFabClick() },
+                    .clickable(enabled = !isProcessing) { onFabClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    if (isImageSelected) Icons.Default.AutoAwesome else Icons.Default.Add,
-                    contentDescription = "Action",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        if (isImageSelected) Icons.Default.AutoAwesome else Icons.Default.Add,
+                        contentDescription = "Action",
+                        tint = Color.White,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
             Text(
-                text = if (isImageSelected) "Start Generate" else "Mulai Buat/Generate",
+                text = when {
+                    isProcessing -> "Menganalisis..."
+                    isImageSelected -> "Start Generate"
+                    else -> "Mulai Buat/Generate"
+                },
                 fontSize = 10.sp,
                 color = Color.White
             )

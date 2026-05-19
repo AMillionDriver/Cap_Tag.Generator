@@ -19,14 +19,22 @@ object KeyStoreManager {
     
     fun getDatabaseKey(prefs: android.content.SharedPreferences): ByteArray {
         val encryptedKey = prefs.getString("encrypted_db_key", null)
-        return if (encryptedKey == null) {
-            val rawKey = ByteArray(32).apply { SecureRandom().nextBytes(this) }
-            val encrypted = encryptWithWrapper(rawKey)
+        val rawKey = if (encryptedKey == null) {
+            val generated = ByteArray(32).apply { SecureRandom().nextBytes(this) }
+            val encrypted = encryptWithWrapper(generated)
             prefs.edit().putString("encrypted_db_key", encrypted).apply()
-            rawKey
+            generated
         } else {
             decryptWithWrapper(encryptedKey)
         }
+
+        // Tambahkan Salt dari C++ untuk memperkuat keamanan (Local Obfuscation)
+        val salt = NativeSecurity.getDatabaseSalt().toByteArray()
+        val finalKey = ByteArray(rawKey.size)
+        for (i in rawKey.indices) {
+            finalKey[i] = (rawKey[i].toInt() xor salt[i % salt.size].toInt()).toByte()
+        }
+        return finalKey
     }
 
     private fun encryptWithWrapper(data: ByteArray): String {

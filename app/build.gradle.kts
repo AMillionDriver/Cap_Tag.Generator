@@ -32,6 +32,12 @@ android {
             )
         }
     }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -80,4 +86,7 @@ dependencies {
 
     // SQLCipher
     implementation(libs.sqlcipher.android)
+
+    // Google ML Kit Text Recognition (Unbundled via Play Services)
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 }

@@ -31,6 +31,33 @@
   </tr>
 </table>
 
+<table width="100%">
+  <tr>
+    <td width="55%" valign="top">
+      <h3>🚀 Fitur Utama Lapak AI v1.0</h3>
+      <ul>
+        <li><b>Verifikasi Biometrik:</b> Keamanan data lokal terenkripsi dengan Sidik Jari & Face ID untuk akses terjamin.</li>
+        <li><b>Analisis Gambar Cerdas:</b> OCR Google ML Kit untuk ekstraksi teks & info produk otomatis dari foto dengan akurasi tinggi.</li>
+        <li><b>Database Aman:</b> Enkripsi end-to-end dengan SQLCipher (AES-256) + JNI native C++ untuk penyimpanan data ultra-aman.</li>
+        <li><b>Customizable Copywriting:</b> Tone of Voice fleksibel, Firebase Remote Config untuk konfigurasi AI secara dinamis tanpa update app.</li>
+        <li><b>Firebase Integration:</b> Analytics real-time, Performance monitoring, & Crashlytics untuk tracking kejadian & error handling.</li>
+        <li><b>Native Security:</b> Keystore System + C++ NDK untuk menyembunyikan salt & encryption keys di level binary code.</li>
+      </ul>
+    </td>
+    <td width="45%" align="center" valign="middle" style="padding: 16px;">
+      <video width="100%" height="auto" autoplay loop muted playsinline style="border-radius: 16px; box-shadow: 0 8px 24px rgba(233,69,96,0.3); margin-bottom: 12px;">
+        <source src="https://github.com/user-attachments/assets/471e86e2-006d-49e0-bf11-ba85ab2b76ae" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 12px; border: 2px solid #0f3460;">
+        <p style="color: #e94560; font-size: 11px; font-weight: bold; margin: 0;">📊 BUILD INFO</p>
+        <p style="color: #fff; font-size: 12px; margin: 4px 0 0 0;"><b>v1.0.0</b> • API 24-36</p>
+        <p style="color: #00d4ff; font-size: 11px; margin: 2px 0 0 0;">✅ R8 Full Mode</p>
+      </div>
+    </td>
+  </tr>
+</table>
+
 ## 🛠️ Tech Stack & Libraries
 
 Proyek **Cap&Tag Generator** ini dibangun menggunakan standar pengembangan Android modern (*Modern Android Development*) untuk memastikan performa yang optimal, aman, dan responsif.

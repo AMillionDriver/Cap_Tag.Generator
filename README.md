@@ -46,7 +46,7 @@
     </td>
     <td width="45%" align="center" valign="middle" style="padding: 16px;">
       <video width="100%" height="auto" autoplay loop muted playsinline style="border-radius: 16px; box-shadow: 0 8px 24px rgba(233,69,96,0.3); margin-bottom: 12px;">
-        <source src="https://github.com/user-attachments/assets/471e86e2-006d-49e0-bf11-ba85ab2b76ae" type="video/mp4" />
+        <source src="https://github.com/user-attachments/assets/471e86e2-006d-49e0-bf11-ba85ab2b76ae" type="video/mp4" loop muted/>
         Your browser does not support the video tag.
       </video>
       <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 12px; border: 2px solid #0f3460;">

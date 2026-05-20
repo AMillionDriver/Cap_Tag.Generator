@@ -89,7 +89,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-perf")
     implementation("com.google.firebase:firebase-crashlytics")
-    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-config")
 
     // Room
     implementation(libs.androidx.room.runtime)

@@ -53,6 +53,9 @@ import com.axoloth.captaggenerator.room.AppDatabase
 import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
 import com.axoloth.captaggenerator.screen.GenerateScreen
+import com.axoloth.captaggenerator.screen.GenerateResult
+import com.axoloth.captaggenerator.screen.fragment.GenerateSplash
+import com.axoloth.captaggenerator.logic.GenerateResultViewModel
 import com.axoloth.captaggenerator.screen.fragment.AccountScreen
 import com.axoloth.captaggenerator.logic.fragment.HistoryItem as ActivityData
 
@@ -95,11 +98,28 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
         factory = AccountViewModelFactory(userRepository)
     )
 
+    val generateResultViewModel: GenerateResultViewModel = viewModel()
+
     CapTagGeneratorTheme(darkTheme = true) {
         if (!isDatabaseReady) {
             SplashDatabaseScreen()
         } else {
             when (viewModel.currentScreen) {
+                is Screen.GenerateProcessing -> {
+                    GenerateSplash(currentStep = generateResultViewModel.currentStep)
+                    if (generateResultViewModel.isFinished) {
+                        viewModel.navigateTo(Screen.GenerateResult)
+                    }
+                }
+                is Screen.GenerateResult -> {
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    GenerateResult(
+                        imageUri = viewModel.selectedImageUri,
+                        productName = "Product AI Generated", // Bisa dinamis dari input
+                        viewModel = generateResultViewModel,
+                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                    )
+                }
                 is Screen.Settings -> {
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     SettingScreen(

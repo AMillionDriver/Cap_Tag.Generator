@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.axoloth.captaggenerator.logic.GenerateScreenViewModel
+import com.axoloth.captaggenerator.logic.GenerateResultViewModel
+import com.axoloth.captaggenerator.logic.Screen
+import com.axoloth.captaggenerator.logic.MainScreenViewModel
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,7 +49,9 @@ fun GenerateScreen(
     selectedImageUri: android.net.Uri?,
     onBackClick: () -> Unit,
     ocrText: String = "",
-    viewModel: GenerateScreenViewModel = viewModel()
+    viewModel: GenerateScreenViewModel = viewModel(),
+    mainViewModel: MainScreenViewModel = viewModel(),
+    resultViewModel: GenerateResultViewModel = viewModel()
 ) {
     // Inisialisasi awal jika ada teks dari OCR
     androidx.compose.runtime.LaunchedEffect(ocrText) {
@@ -310,7 +315,16 @@ fun GenerateScreen(
                     }
 
                     Button(
-                        onClick = { viewModel.onGenerateClick() },
+                        onClick = { 
+                            resultViewModel.startProcessing(
+                                productName = viewModel.productModel,
+                                productModel = viewModel.productModel,
+                                productPurpose = viewModel.productPurpose,
+                                userKeywords = viewModel.keywords.toList(),
+                                tone = viewModel.selectedTone
+                            )
+                            mainViewModel.navigateTo(Screen.GenerateProcessing)
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = GenerateAccentPurple),
                         shape = RoundedCornerShape(28.dp)

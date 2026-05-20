@@ -17,6 +17,8 @@ sealed class Screen {
     object Settings : Screen()
     object TwoFactorSetup : Screen()
     data class Generate(val ocrText: String = "") : Screen()
+    object GenerateProcessing : Screen()
+    object GenerateResult : Screen()
     object History : Screen()
     object Account : Screen()
 }

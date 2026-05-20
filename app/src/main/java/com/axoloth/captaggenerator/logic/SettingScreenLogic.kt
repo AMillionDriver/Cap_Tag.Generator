@@ -24,6 +24,24 @@ class SettingScreenViewModel(context: Context) : ViewModel() {
     var umkmCategory by mutableStateOf(sharedPrefs.getString("umkm_category", "Kuliner") ?: "Kuliner")
         private set
 
+    var salesLink by mutableStateOf(sharedPrefs.getString("sales_link", "https://wa.me/628123456789") ?: "https://wa.me/628123456789")
+        private set
+
+    var isEditingSalesLink by mutableStateOf(false)
+
+    // AI System State
+    var selectedTone by mutableStateOf(sharedPrefs.getString("tone_of_voice", "Gacor (Santai)") ?: "Gacor (Santai)")
+        private set
+
+    val toneOptions = listOf(
+        ToneOption("Professional", "Precise and formal communication.", "💼"),
+        ToneOption("Friendly", "Warm and approachable tone.", "🤝"),
+        ToneOption("Calm", "Soothing and patient delivery.", "🪷"),
+        ToneOption("Enthusiastic", "Energetic and dynamic response.", "📢"),
+        ToneOption("Direct", "Clear and concise interaction.", "🎯"),
+        ToneOption("Gacor (Santai)", "Santai tapi tetep asik buat jualan.", "🔥")
+    )
+
     fun onTwoFactorToggle(enabled: Boolean, onNavigateToSetup: () -> Unit) {
         if (enabled) {
             onNavigateToSetup()
@@ -54,6 +72,17 @@ class SettingScreenViewModel(context: Context) : ViewModel() {
         sharedPrefs.edit().putString("umkm_category", newCategory).apply()
     }
 
+    fun updateSalesLink(newLink: String) {
+        salesLink = newLink
+        sharedPrefs.edit().putString("sales_link", newLink).apply()
+        isEditingSalesLink = false
+    }
+
+    fun updateTone(newTone: String) {
+        selectedTone = newTone
+        sharedPrefs.edit().putString("tone_of_voice", newTone).apply()
+    }
+
     private fun clearTwoFactorConfig() {
         isTwoFactorEnabled = false
         sharedPrefs.edit().putBoolean("2fa_enabled", false).apply()
@@ -63,4 +92,7 @@ class SettingScreenViewModel(context: Context) : ViewModel() {
         println("2FA Configuration Wiped: Clean start enabled.")
     }
 }
+
+data class ToneOption(val title: String, val description: String, val emoji: String)
+
 

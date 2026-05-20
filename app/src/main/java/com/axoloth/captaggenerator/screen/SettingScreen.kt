@@ -34,7 +34,10 @@ import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.SettingScreenViewModel
 import com.axoloth.captaggenerator.screen.fragment.BiometricDialog
 import com.axoloth.captaggenerator.screen.fragment.BiometricDialogStatus
+import com.axoloth.captaggenerator.screen.fragment.DatabaseTrendLogPopup
 import com.axoloth.captaggenerator.screen.fragment.KategoriUMKMSheet
+import com.axoloth.captaggenerator.screen.fragment.StoragePopUp
+import com.axoloth.captaggenerator.screen.fragment.ToneOfVoicePopup
 import com.axoloth.captaggenerator.service.security.FingerPrint
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 
@@ -183,11 +186,82 @@ fun SettingScreen(
                         onClick = { showCategorySheet = true }
                     )
                     SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Default.Link,
-                        title = "Default Link Jualan",
-                        subtitle = "Link WhatsApp"
-                    )
+                    if (settingViewModel.isEditingSalesLink) {
+                        var tempLink by remember { mutableStateOf(settingViewModel.salesLink) }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(SettingsIconBg, RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Link, null, tint = SettingsAccentPurple)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text("Default Link Jualan", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            OutlinedTextField(
+                                value = tempLink,
+                                onValueChange = { tempLink = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = SettingsAccentPurple,
+                                    unfocusedBorderColor = Color.Gray,
+                                    cursorColor = SettingsAccentPurple
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = { settingViewModel.isEditingSalesLink = false },
+                                    border = BorderStroke(1.dp, Color.Gray),
+                                    shape = RoundedCornerShape(20.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text("Batal", color = Color.White, fontSize = 14.sp)
+                                }
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                Button(
+                                    onClick = { settingViewModel.updateSalesLink(tempLink) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = SettingsAccentPurple),
+                                    shape = RoundedCornerShape(20.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text("Simpan", color = Color.White, fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    } else {
+                        SettingsItem(
+                            icon = Icons.Default.Link,
+                            title = "Default Link Jualan",
+                            subtitle = settingViewModel.salesLink,
+                            trailing = {
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = SettingsAccentPurple, modifier = Modifier.size(20.dp))
+                            },
+                            onClick = { settingViewModel.isEditingSalesLink = true }
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -280,18 +354,36 @@ fun SettingScreen(
                 // Section: Sistem AI
                 SettingsSectionHeader("SISTEM AI")
                 SettingsGroup {
+                    var showTonePopup by remember { mutableStateOf(false) }
+                    var showTrendLogPopup by remember { mutableStateOf(false) }
+
+                    if (showTonePopup) {
+                        ToneOfVoicePopup(
+                            viewModel = settingViewModel,
+                            onDismiss = { showTonePopup = false }
+                        )
+                    }
+
+                    if (showTrendLogPopup) {
+                        DatabaseTrendLogPopup(
+                            onDismiss = { showTrendLogPopup = false }
+                        )
+                    }
+
                     SettingsItem(
                         icon = Icons.Default.VolumeUp,
                         title = "Tone of Voice",
-                        subtitle = "Gacor (Santai)",
-                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = SettingsSecondaryText) }
+                        subtitle = settingViewModel.selectedTone,
+                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = SettingsSecondaryText) },
+                        onClick = { showTonePopup = true }
                     )
                     SettingsDivider()
                     SettingsItem(
                         icon = Icons.Default.Storage,
                         title = "Database Tren",
                         subtitle = "Versi v2.1.0\nTerakhir Update: 14 Mei 2026",
-                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = SettingsSecondaryText) }
+                        trailing = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = SettingsSecondaryText) },
+                        onClick = { showTrendLogPopup = true }
                     )
                 }
 
@@ -300,11 +392,18 @@ fun SettingScreen(
                 // Section: Penyimpanan
                 SettingsSectionHeader("PENYIMPANAN")
                 SettingsGroup {
+                    var showStoragePopup by remember { mutableStateOf(false) }
+
+                    if (showStoragePopup) {
+                        StoragePopUp(onDismiss = { showStoragePopup = false })
+                    }
+
                     SettingsItem(
                         icon = Icons.Default.Delete,
                         title = "Bersihkan Cache & Riwayat",
                         titleColor = SettingsDeleteRed,
-                        iconColor = SettingsDeleteRed
+                        iconColor = SettingsDeleteRed,
+                        onClick = { showStoragePopup = true }
                     )
                 }
 

@@ -44,14 +44,13 @@
         <li><b>Native Security:</b> Keystore System + C++ NDK untuk menyembunyikan salt & encryption keys di level binary code.</li>
       </ul>
     </td>
-    <td width="45%" align="center" valign="middle" style="padding: 16px;">
-      <video width="100%" height="auto" autoplay loop muted playsinline style="border-radius: 16px; box-shadow: 0 8px 24px rgba(233,69,96,0.3); margin-bottom: 12px;">
-        <source src="https://github.com/user-attachments/assets/471e86e2-006d-49e0-bf11-ba85ab2b76ae" type="video/mp4" loop muted/>
-        Your browser does not support the video tag.
+    <td width="45%" align="center" valign="middle">
+      <video src="https://github.com/user-attachments/assets/471e86e2-006d-49e0-bf11-ba85ab2b76ae" width="100%" autoplay loop muted playsinline style="border-radius: 16px;">
       </video>
-      <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 12px; padding: 12px; border: 2px solid #0f3460;">
+      <br/>
+      <div align="left" style="background-color: #16213e; border-radius: 12px; padding: 12px; border: 1px solid #0f3460;">
         <p style="color: #e94560; font-size: 11px; font-weight: bold; margin: 0;">📊 BUILD INFO</p>
-        <p style="color: #fff; font-size: 12px; margin: 4px 0 0 0;"><b>v1.0.0</b> • API 24-36</p>
+        <p style="color: #ffffff; font-size: 12px; margin: 4px 0 0 0;"><b>v1.0.0</b> • API 24-36</p>
         <p style="color: #00d4ff; font-size: 11px; margin: 2px 0 0 0;">✅ R8 Full Mode</p>
       </div>
     </td>

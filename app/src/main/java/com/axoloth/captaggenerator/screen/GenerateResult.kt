@@ -1,6 +1,7 @@
 package com.axoloth.captaggenerator.screen
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,16 +17,20 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
 import com.axoloth.captaggenerator.logic.GenerateResultViewModel
+import com.axoloth.captaggenerator.logic.Screen
+import com.axoloth.captaggenerator.logic.MainScreenViewModel
 
 private val CardBg = Color(0xFF161B22)
 private val AccentPurple = Color(0xFF8A2BE2)
@@ -49,13 +54,25 @@ fun GenerateResult(
                     }
                 },
                 actions = {
+                    val scope = rememberCoroutineScope()
+                    val context = LocalContext.current
                     Button(
-                        onClick = { /* Save Logic */ },
+                        onClick = { 
+                            viewModel.saveToHistory(imageUri?.toString()) {
+                                Toast.makeText(context, "Berhasil disimpan ke Riwayat", Toast.LENGTH_SHORT).show()
+                                onBackClick()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        enabled = !viewModel.isSaving
                     ) {
-                        Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
+                        if (viewModel.isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
+                        }
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Save", fontSize = 14.sp)
                     }
@@ -112,7 +129,7 @@ fun GenerateResult(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedButton(
-                    onClick = { /* Share */ },
+                    onClick = { /* Share Logic */ },
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
@@ -123,7 +140,7 @@ fun GenerateResult(
                 }
 
                 Button(
-                    onClick = { /* Regenerate */ },
+                    onClick = { viewModel.regenerate() },
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B))

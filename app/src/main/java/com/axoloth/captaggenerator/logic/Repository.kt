@@ -6,7 +6,7 @@ import com.axoloth.captaggenerator.service.security.AesSecurity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-class UserRepository(private val userDao: UserDao) {
+class UserRepository(val userDao: UserDao) {
 
     fun getUser(): Flow<User?> = userDao.getUser().map { entity ->
         entity?.let {

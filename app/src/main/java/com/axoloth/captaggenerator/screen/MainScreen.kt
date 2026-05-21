@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,7 +40,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.SettingScreenViewModel
-import com.axoloth.captaggenerator.logic.HistoryViewModel
 import com.axoloth.captaggenerator.logic.fragment.HistoryManager
 import com.axoloth.captaggenerator.screen.fragment.SideMenuContent
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
@@ -48,6 +48,9 @@ import kotlinx.coroutines.launch
 
 import com.axoloth.captaggenerator.logic.AccountViewModel
 import com.axoloth.captaggenerator.logic.AccountViewModelFactory
+import com.axoloth.captaggenerator.logic.GenerateResultViewModelFactory
+import com.axoloth.captaggenerator.logic.HistoryViewModel
+import com.axoloth.captaggenerator.logic.HistoryViewModelFactory
 import com.axoloth.captaggenerator.logic.UserRepository
 import com.axoloth.captaggenerator.room.AppDatabase
 import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
@@ -98,7 +101,9 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
         factory = AccountViewModelFactory(userRepository)
     )
 
-    val generateResultViewModel: GenerateResultViewModel = viewModel()
+    val generateResultViewModel: GenerateResultViewModel = viewModel(
+        factory = GenerateResultViewModelFactory(database.userDao())
+    )
 
     CapTagGeneratorTheme(darkTheme = true) {
         if (!isDatabaseReady) {
@@ -150,7 +155,8 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                 is Screen.History -> {
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     HistoryScreen(
-                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                        onBackClick = { viewModel.navigateTo(Screen.Main) },
+                        viewModel = viewModel(factory = HistoryViewModelFactory(database.userDao()))
                     )
                 }
                 is Screen.Account -> {
@@ -181,7 +187,8 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                             viewModel.handleMenuItemClick(label) {
                                 scope.launch { drawerState.close() }
                             }
-                        }
+                        },
+                        userDao = userRepository.userDao
                     )
                 }
             }
@@ -197,7 +204,8 @@ fun MainDashboard(
     drawerState: DrawerState,
     snackbarHostState: SnackbarHostState,
     onMenuClick: () -> Unit,
-    onMenuItemClick: (String) -> Unit
+    onMenuItemClick: (String) -> Unit,
+    userDao: com.axoloth.captaggenerator.room.UserDao
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -206,6 +214,10 @@ fun MainDashboard(
     ) { uri ->
         viewModel.onImageSelected(uri)
     }
+
+    val recentHistory by viewModel<HistoryViewModel>(
+        factory = HistoryViewModelFactory(userDao)
+    ).historyItems.collectAsState()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -269,7 +281,7 @@ fun MainDashboard(
                 }
                 item { Spacer(modifier = Modifier.height(16.dp)) }
                 
-                if (HistoryManager.historyItems.isEmpty()) {
+                if (recentHistory.isEmpty()) {
                     item {
                         Text(
                             text = "Belum ada aktivitas terbaru",
@@ -280,8 +292,8 @@ fun MainDashboard(
                         )
                     }
                 } else {
-                    items(HistoryManager.historyItems.take(3)) { activity ->
-                        ActivityItem(activity)
+                    items(recentHistory.take(3)) { history ->
+                        ActivityItem(history)
                     }
                 }
             }
@@ -454,7 +466,7 @@ fun AnalysisSection(
 }
 
 @Composable
-fun ActivityItem(activity: ActivityData) {
+fun ActivityItem(activity: com.axoloth.captaggenerator.room.HistoryEntity) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -470,7 +482,7 @@ fun ActivityItem(activity: ActivityData) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = activity.icon,
+                imageVector = Icons.Default.AutoAwesome,
                 contentDescription = null,
                 tint = ColorIconCyan,
                 modifier = Modifier.size(24.dp)
@@ -479,13 +491,15 @@ fun ActivityItem(activity: ActivityData) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = activity.title,
+                text = activity.productName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
+            val timeString = java.text.SimpleDateFormat("dd MMM, HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(activity.timestamp))
             Text(
-                text = activity.time,
+                text = timeString,
                 style = MaterialTheme.typography.labelSmall,
                 color = ColorTextSecondary
             )

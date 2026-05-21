@@ -13,4 +13,13 @@ interface UserDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
+
+    @Query("SELECT * FROM history ORDER BY timestamp DESC")
+    fun getAllHistory(): Flow<List<HistoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHistory(history: HistoryEntity)
+
+    @Query("DELETE FROM history")
+    suspend fun deleteAllHistory()
 }

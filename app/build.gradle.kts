@@ -101,4 +101,7 @@ dependencies {
 
     // Google ML Kit Text Recognition (Unbundled via Play Services)
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+
+    // Google Gemini AI SDK
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 }

@@ -1,8 +1,13 @@
 package com.axoloth.captaggenerator.service.ai.onquesystem
 
+import com.axoloth.captaggenerator.service.ai.fetch.AiFetchingLogic
+import android.util.Log
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.generationConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.json.JSONObject
 
 sealed class GenerationStep {
     object Copywriting : GenerationStep()
@@ -18,8 +23,8 @@ sealed class GenerationStep {
 object AiQueSystem {
 
     /**
-     * Menjalankan antrean proses AI dengan delay visual untuk menghemat token
-     * dan menghindari Rate Limit.
+     * Menjalankan antrean proses AI dengan strategi Single-Hit JSON.
+     * Mengambil semua data dalam satu request untuk menghemat token dan RPM.
      */
     fun startGenerationQueue(
         productName: String,
@@ -29,23 +34,99 @@ object AiQueSystem {
         tone: String
     ): Flow<GenerationStep> = flow {
         
-        // 1. Tahap Copywriting & Deskripsi (Delay 30 detik)
+        // 1. Tahap Inisialisasi & Request (Visual Delay 10 detik)
         emit(GenerationStep.Copywriting)
-        delay(30000) 
-        val mockCopywriting = "Discover the $productName, where style meets innovation. Track your fitness, monitor health (HR/SpO2), and stay connected effortlessly."
-        val mockDescription = "Premium $productModel with advanced $productPurpose features. $tone delivery."
+        
+        // Jalankan request AI di background sesegera mungkin
+        val aiResultDeferred = try {
+            fetchAiData(productName, productModel, productPurpose, userKeywords, tone)
+        } catch (e: Exception) {
+            null
+        }
 
-        // 2. Tahap Caption (Delay 60 detik)
+        delay(1500) // Visual delay untuk tahap 1
+
+        // 2. Tahap Caption (Visual Delay 15 detik)
         emit(GenerationStep.Caption)
-        delay(60000)
-        // Simulasi hit AI di sini
+        delay(1500)
 
-        // 3. Tahap Tags & Hashtags (Delay 30 detik)
+        // 3. Tahap Tags & Hashtags (Visual Delay 10 detik)
         emit(GenerationStep.Tags)
-        delay(30000)
-        val mockTags = userKeywords.joinToString(", ") + ", Smartwatch, Technology, #$productName #AI #Innovation"
+        delay(1000)
 
-        // 4. Selesai
-        emit(GenerationStep.Completed(mockCopywriting, mockDescription, mockTags))
+        // 4. Selesai - Gabungkan hasil asli dari AI (atau fallback jika gagal)
+        if (aiResultDeferred != null) {
+            emit(GenerationStep.Completed(
+                aiResultDeferred.copywriting,
+                aiResultDeferred.description,
+                aiResultDeferred.tags
+            ))
+        } else {
+            // Fallback jika AI gagal
+            emit(GenerationStep.Completed(
+                "Gagal mengambil data dari AI. Silakan coba lagi.",
+                "Detail produk tidak tersedia.",
+                "#Error #Retry"
+            ))
+        }
     }
+
+    private suspend fun fetchAiData(
+        name: String, model: String, purpose: String, keywords: List<String>, tone: String
+    ): AiResponse? {
+        val encryptedKey = AiFetchingLogic.fetchAndSecureGeminiKey() ?: return null
+        val apiKey = AiFetchingLogic.getReadyApiKey(encryptedKey)
+        
+        val generativeModel = GenerativeModel(
+            modelName = "gemini-2.5-flash-lite",
+            apiKey = apiKey,
+            generationConfig = generationConfig {
+                responseMimeType = "application/json"
+            }
+        )
+
+        val prompt = """
+            Kamu adalah ahli copywriting marketing profesional. 
+            Buatlah konten promosi untuk produk berikut:
+            Nama Produk: $name
+            Model: $model
+            Tujuan: $purpose
+            Kata Kunci: ${keywords.joinToString(", ")}
+            Nada Bicara: $tone
+
+            Berikan respon HANYA dalam format JSON mentah dengan struktur berikut:
+            {
+              "copywriting": "teks copywriting panjang max 1000 token",
+              "description": "deskripsi produk mendalam",
+              "tags": "daftar hashtag dan tag dipisahkan koma"
+            }
+        """.trimIndent()
+
+        return try {
+            val response = generativeModel.generateContent(prompt)
+            val jsonText = response.text ?: return null
+            
+            Log.d("AiQueSystem", "Raw AI Response: $jsonText")
+            
+            // Bersihkan teks jika AI menambahkan markdown (```json ... ```)
+            val cleanedJson = jsonText.replace("```json", "").replace("```", "").trim()
+            
+            val jsonObject = JSONObject(cleanedJson)
+            AiResponse(
+                copywriting = jsonObject.getString("copywriting"),
+                description = jsonObject.getString("description"),
+                tags = jsonObject.getString("tags")
+            )
+        } catch (e: Exception) {
+            Log.e("AiQueSystem", "Error in fetchAiData: ${e.message}")
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private data class AiResponse(
+        val copywriting: String,
+        val description: String,
+        val tags: String
+    )
 }

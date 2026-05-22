@@ -113,16 +113,30 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                 is Screen.GenerateProcessing -> {
                     GenerateSplash(currentStep = generateResultViewModel.currentStep)
                     if (generateResultViewModel.isFinished) {
-                        viewModel.navigateTo(Screen.GenerateResult)
+                        viewModel.navigateTo(Screen.GenerateResult())
                     }
                 }
                 is Screen.GenerateResult -> {
+                    val historyId = (viewModel.currentScreen as? Screen.GenerateResult)?.historyId
+                    if (historyId != null) {
+                        LaunchedEffect(historyId) {
+                            generateResultViewModel.loadFromHistory(historyId)
+                        }
+                    }
+                    
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     GenerateResult(
-                        imageUri = viewModel.selectedImageUri,
-                        productName = "Product AI Generated", // Bisa dinamis dari input
+                        imageUri = if (historyId != null) {
+                            generateResultViewModel.selectedImageUriString?.let { android.net.Uri.parse(it) }
+                        } else {
+                            viewModel.selectedImageUri
+                        },
+                        productName = if (historyId != null) "Riwayat Generate" else "Product AI Generated",
                         viewModel = generateResultViewModel,
-                        onBackClick = { viewModel.navigateTo(Screen.Main) }
+                        onBackClick = { 
+                            generateResultViewModel.isFinished = false // Reset state
+                            viewModel.navigateTo(Screen.Main) 
+                        }
                     )
                 }
                 is Screen.Settings -> {
@@ -293,7 +307,12 @@ fun MainDashboard(
                     }
                 } else {
                     items(recentHistory.take(3)) { history ->
-                        ActivityItem(history)
+                        ActivityItem(
+                            activity = history,
+                            onClick = {
+                                viewModel.navigateTo(Screen.GenerateResult(historyId = history.id))
+                            }
+                        )
                     }
                 }
             }
@@ -466,27 +485,41 @@ fun AnalysisSection(
 }
 
 @Composable
-fun ActivityItem(activity: com.axoloth.captaggenerator.room.HistoryEntity) {
+fun ActivityItem(
+    activity: com.axoloth.captaggenerator.room.HistoryEntity,
+    onClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .background(ColorCardBackground, RoundedCornerShape(16.dp))
+            .clickable { onClick() }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .background(Color(0xFF1E293B), RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF1E293B)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = null,
-                tint = ColorIconCyan,
-                modifier = Modifier.size(24.dp)
-            )
+            if (activity.imageUri != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(activity.imageUri),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = ColorIconCyan,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {

@@ -19,9 +19,32 @@ class GenerateResultViewModel(private val userDao: UserDao) : ViewModel() {
     var currentStep by mutableStateOf<GenerationStep>(GenerationStep.Copywriting)
     var isFinished by mutableStateOf(false)
     var isSaving by mutableStateOf(false)
+    var selectedImageUriString by mutableStateOf<String?>(null)
 
     // Simpan parameter untuk fungsi Regenerate
     private var lastParams: GenerationParams? = null
+
+    fun loadFromHistory(historyId: Int) {
+        viewModelScope.launch {
+            userDao.getAllHistory().collect { list ->
+                val item = list.find { it.id == historyId }
+                item?.let {
+                    copywriting = it.copywriting
+                    productDescription = it.productDescription
+                    tagsAndHashtags = it.tagsAndHashtags
+                    selectedImageUriString = it.imageUri
+                    lastParams = GenerationParams(
+                        productName = it.productName,
+                        productModel = "", // Optional: history might not store this separately
+                        productPurpose = "",
+                        userKeywords = emptyList(),
+                        tone = ""
+                    )
+                    isFinished = true
+                }
+            }
+        }
+    }
 
     fun startProcessing(
         productName: String,

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.axoloth.captaggenerator.logic.fragment.MenuToggleLogic
 import com.axoloth.captaggenerator.service.ai.OcrService
 import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -19,6 +20,7 @@ sealed class Screen {
     data class Generate(val ocrText: String = "") : Screen()
     object GenerateProcessing : Screen()
     data class GenerateResult(val historyId: Int? = null) : Screen()
+    data class WebView(val url: String) : Screen()
     object History : Screen()
     object Account : Screen()
 }
@@ -57,6 +59,7 @@ class MainScreenViewModel : ViewModel() {
             when (label) {
                 "Pengaturan Aplikasi" -> navigateTo(Screen.Settings)
                 "Pengaturan Akun" -> navigateTo(Screen.Account)
+                "Tentang LapakAI" -> MenuToggleLogic.handleTentangLapakAI(this@MainScreenViewModel)
                 else -> _snackbarEvent.emit("(Dalam Proses Pengembangan)")
             }
         }

@@ -55,6 +55,7 @@ import com.axoloth.captaggenerator.logic.UserRepository
 import com.axoloth.captaggenerator.room.AppDatabase
 import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
+import com.axoloth.captaggenerator.screen.fragment.LapakWebView
 import com.axoloth.captaggenerator.screen.GenerateScreen
 import com.axoloth.captaggenerator.screen.GenerateResult
 import com.axoloth.captaggenerator.screen.fragment.GenerateSplash
@@ -178,6 +179,14 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     AccountScreen(
                         onBackClick = { viewModel.navigateTo(Screen.Main) },
                         viewModel = accountViewModel
+                    )
+                }
+                is Screen.WebView -> {
+                    val url = (viewModel.currentScreen as Screen.WebView).url
+                    BackHandler { viewModel.navigateTo(Screen.Main) }
+                    LapakWebView(
+                        url = url,
+                        onBackClick = { viewModel.navigateTo(Screen.Main) }
                     )
                 }
                 is Screen.Main -> {

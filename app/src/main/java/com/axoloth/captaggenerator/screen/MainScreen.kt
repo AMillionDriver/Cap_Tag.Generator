@@ -35,6 +35,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import coil.compose.rememberAsyncImagePainter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
@@ -76,10 +77,11 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val isPreview = LocalInspectionMode.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
     
     // Database and Repository initialization
-    var isDatabaseReady by remember { mutableStateOf(false) }
+    var isDatabaseReady by remember { mutableStateOf(isPreview) }
     val database = remember { AppDatabase.getInstance(context) }
     val userRepository = remember { UserRepository(database.userDao()) }
 

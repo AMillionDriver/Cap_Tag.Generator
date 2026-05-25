@@ -29,24 +29,35 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         private fun buildDatabase(context: Context): AppDatabase {
-            // SQLCipher 4.6.1+ initialization
-            // loadLibs is no longer required in modern SQLCipher Android, 
-            // but we keep it safe or use the new initialization pattern if needed.
-            System.loadLibrary("sqlcipher")
-            
-            val prefs = context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE)
-            val dbKey = KeyStoreManager.getDatabaseKey(prefs)
-            val factory = SupportOpenHelperFactory(dbKey)
+            return try {
+                // SQLCipher 4.6.1+ initialization
+                // loadLibs is no longer required in modern SQLCipher Android, 
+                // but we keep it safe or use the new initialization pattern if needed.
+                System.loadLibrary("sqlcipher")
+                
+                val prefs = context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE)
+                val dbKey = KeyStoreManager.getDatabaseKey(prefs)
+                val factory = SupportOpenHelperFactory(dbKey)
 
-            return Room.databaseBuilder(
-                context.applicationContext,
-                AppDatabase::class.java,
-                DATABASE_NAME
-            )
-            .openHelperFactory(factory)
-            .fallbackToDestructiveMigration()
-            .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
-            .build()
+                Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    DATABASE_NAME
+                )
+                .openHelperFactory(factory)
+                .fallbackToDestructiveMigration()
+                .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+                .build()
+            } catch (e: UnsatisfiedLinkError) {
+                // Fallback for Compose Preview or environments without SQLCipher native libs
+                Log.w("AppDatabase", "SQLCipher library not found, falling back to in-memory database: ${e.message}")
+                Room.inMemoryDatabaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java
+                )
+                .fallbackToDestructiveMigration()
+                .build()
+            }
         }
         
         // Robust opening to handle SQLiteNotADatabaseException/Corrupt database

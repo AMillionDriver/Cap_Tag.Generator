@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -38,7 +40,6 @@ import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val GenerateBgColor = Color(0xFF0D0D0D)
 private val GenerateCardBg = Color(0xFF161B22)
 private val GenerateAccentPurple = Color(0xFF8A2BE2)
 private val GenerateSecondaryText = Color(0xFF8E8E93)
@@ -46,7 +47,7 @@ private val GenerateSecondaryText = Color(0xFF8E8E93)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenerateScreen(
-    selectedImageUri: android.net.Uri?,
+    selectedImageUri: Uri?,
     onBackClick: () -> Unit,
     ocrText: String = "",
     viewModel: GenerateScreenViewModel = viewModel(),
@@ -60,6 +61,58 @@ fun GenerateScreen(
         }
     }
 
+    GenerateScreenContent(
+        selectedImageUri = selectedImageUri,
+        onBackClick = onBackClick,
+        productModel = viewModel.productModel,
+        onProductModelChange = { viewModel.productModel = it },
+        productPurpose = viewModel.productPurpose,
+        onProductPurposeChange = { viewModel.productPurpose = it },
+        keywordsInput = viewModel.keywordsInput,
+        onKeywordsInputChange = {
+            viewModel.keywordsInput = it
+            if (it.endsWith(",")) {
+                viewModel.addKeyword()
+            }
+        },
+        keywords = viewModel.keywords,
+        onRemoveKeyword = { viewModel.removeKeyword(it) },
+        selectedTone = viewModel.selectedTone,
+        onSelectedToneChange = { viewModel.selectedTone = it },
+        tones = viewModel.tones,
+        onStartProcessing = {
+            resultViewModel.startProcessing(
+                productName = viewModel.productModel,
+                productModel = viewModel.productModel,
+                productPurpose = viewModel.productPurpose,
+                userKeywords = viewModel.keywords.toList(),
+                tone = viewModel.selectedTone
+            )
+            mainViewModel.navigateTo(Screen.GenerateProcessing)
+        }
+    )
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun GenerateScreenContent(
+    selectedImageUri: Uri?,
+    onBackClick: () -> Unit,
+    productModel: String,
+    onProductModelChange: (String) -> Unit,
+    productPurpose: String,
+    onProductPurposeChange: (String) -> Unit,
+    keywordsInput: String,
+    onKeywordsInputChange: (String) -> Unit,
+    keywords: List<String>,
+    onRemoveKeyword: (String) -> Unit,
+    selectedTone: String,
+    onSelectedToneChange: (String) -> Unit,
+    tones: List<String>,
+    onStartProcessing: () -> Unit
+) {
     CapTagGeneratorTheme(darkTheme = true) {
         Scaffold(
             topBar = {
@@ -164,8 +217,8 @@ fun GenerateScreen(
 
                 // Input Section: Product Model
                 OutlinedTextField(
-                    value = viewModel.productModel,
-                    onValueChange = { viewModel.productModel = it },
+                    value = productModel,
+                    onValueChange = onProductModelChange,
                     label = { Text("Deskripsikan tentang model product anda") },
                     placeholder = { Text("Misal:") },
                     modifier = Modifier.fillMaxWidth(),
@@ -188,8 +241,8 @@ fun GenerateScreen(
 
                 // Input Section: Product Purpose
                 OutlinedTextField(
-                    value = viewModel.productPurpose,
-                    onValueChange = { viewModel.productPurpose = it },
+                    value = productPurpose,
+                    onValueChange = onProductPurposeChange,
                     label = { Text("Deskripsikan tujuan penggunaan product anda") },
                     placeholder = { Text("Misal:") },
                     modifier = Modifier.fillMaxWidth(),
@@ -225,13 +278,8 @@ fun GenerateScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
-                        value = viewModel.keywordsInput,
-                        onValueChange = { 
-                            viewModel.keywordsInput = it
-                            if (it.endsWith(",")) {
-                                viewModel.addKeyword()
-                            }
-                        },
+                        value = keywordsInput,
+                        onValueChange = onKeywordsInputChange,
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("Tambah kata kunci...") },
                         colors = OutlinedTextFieldDefaults.colors(
@@ -246,10 +294,10 @@ fun GenerateScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    viewModel.keywords.forEach { keyword ->
+                    keywords.forEach { keyword ->
                         InputChip(
                             selected = true,
-                            onClick = { viewModel.removeKeyword(keyword) },
+                            onClick = { onRemoveKeyword(keyword) },
                             label = { Text(keyword) },
                             trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp)) }
                         )
@@ -262,7 +310,7 @@ fun GenerateScreen(
                 var expanded by remember { mutableStateOf(false) }
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
-                        value = viewModel.selectedTone,
+                        value = selectedTone,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Nada Bicara Caption") },
@@ -286,11 +334,11 @@ fun GenerateScreen(
                         onDismissRequest = { expanded = false },
                         modifier = Modifier.fillMaxWidth(0.9f).background(GenerateCardBg)
                     ) {
-                        viewModel.tones.forEach { tone ->
+                        tones.forEach { tone ->
                             DropdownMenuItem(
                                 text = { Text(tone, color = Color.White) },
                                 onClick = {
-                                    viewModel.selectedTone = tone
+                                    onSelectedToneChange(tone)
                                     expanded = false
                                 }
                             )
@@ -299,6 +347,23 @@ fun GenerateScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+
+                // Voice Input FAB
+                FloatingActionButton(
+                    onClick = { /* UI Only for now */ },
+                    containerColor = GenerateAccentPurple,
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(62.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Voice Input",
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
 
                 // Action Buttons
                 Row(
@@ -315,16 +380,7 @@ fun GenerateScreen(
                     }
 
                     Button(
-                        onClick = { 
-                            resultViewModel.startProcessing(
-                                productName = viewModel.productModel,
-                                productModel = viewModel.productModel,
-                                productPurpose = viewModel.productPurpose,
-                                userKeywords = viewModel.keywords.toList(),
-                                tone = viewModel.selectedTone
-                            )
-                            mainViewModel.navigateTo(Screen.GenerateProcessing)
-                        },
+                        onClick = onStartProcessing,
                         modifier = Modifier.weight(1f).height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = GenerateAccentPurple),
                         shape = RoundedCornerShape(28.dp)
@@ -388,5 +444,28 @@ fun FlowRow(
         modifier = modifier,
         horizontalArrangement = horizontalArrangement,
         content = { content() }
+    )
+}
+
+
+
+@Preview(showBackground = true)
+@Composable
+fun GenerateScreenPreview() {
+    GenerateScreenContent(
+        selectedImageUri = null,
+        onBackClick = {},
+        productModel = "Sepatu Lari Nike",
+        onProductModelChange = {},
+        productPurpose = "Untuk maraton",
+        onProductPurposeChange = {},
+        keywordsInput = "",
+        onKeywordsInputChange = {},
+        keywords = listOf("nyaman", "ringan", "keren"),
+        onRemoveKeyword = {},
+        selectedTone = "Hype",
+        onSelectedToneChange = {},
+        tones = listOf("Hype", "Formal", "Santai", "Profesional", "Lucu"),
+        onStartProcessing = {}
     )
 }

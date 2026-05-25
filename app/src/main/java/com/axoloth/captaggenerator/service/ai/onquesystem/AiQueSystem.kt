@@ -44,15 +44,15 @@ object AiQueSystem {
             null
         }
 
-        delay(1500) // Visual delay untuk tahap 1
+        delay(3500) // Visual delay untuk tahap 1
 
         // 2. Tahap Caption (Visual Delay 15 detik)
         emit(GenerationStep.Caption)
-        delay(1500)
+        delay(4500)
 
         // 3. Tahap Tags & Hashtags (Visual Delay 10 detik)
         emit(GenerationStep.Tags)
-        delay(1000)
+        delay(2000)
 
         // 4. Selesai - Gabungkan hasil asli dari AI (atau fallback jika gagal)
         if (aiResultDeferred != null) {

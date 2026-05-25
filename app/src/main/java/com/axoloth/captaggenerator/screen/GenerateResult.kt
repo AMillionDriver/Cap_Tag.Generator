@@ -1,5 +1,9 @@
 package com.axoloth.captaggenerator.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -17,7 +21,6 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,21 +31,82 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
+import androidx.compose.ui.tooling.preview.Preview
 import com.axoloth.captaggenerator.logic.GenerateResultViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
+import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 
-private val CardBg = Color(0xFF161B22)
-private val AccentPurple = Color(0xFF8A2BE2)
+private val CardBg = Color(0xFF000000)
 private val SecondaryText = Color(0xFF8E8E93)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GenerateResult(
     imageUri: Uri?,
     productName: String,
     viewModel: GenerateResultViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onRegenerateClick: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    
+    GenerateResultContent(
+        imageUri = imageUri,
+        productName = productName,
+        copywriting = viewModel.copywriting,
+        productDescription = viewModel.productDescription,
+        tagsAndHashtags = viewModel.tagsAndHashtags,
+        isSaving = viewModel.isSaving,
+        onBackClick = onBackClick,
+        onSaveClick = {
+            viewModel.saveToHistory(imageUri?.toString()) {
+                Toast.makeText(context, "Berhasil disimpan ke Riwayat", Toast.LENGTH_SHORT).show()
+                onBackClick()
+            }
+        },
+        onRegenerateClick = {
+            viewModel.regenerate()
+            onRegenerateClick()
+        },
+        onShareClick = {
+            val shareText = """
+                $productName
+                
+                [COPYWRITING]
+                ${viewModel.copywriting}
+                
+                [DESCRIPTION]
+                ${viewModel.productDescription}
+                
+                [TAGS & HASHTAGS]
+                ${viewModel.tagsAndHashtags}
+            """.trimIndent()
+
+            val sendIntent: Intent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, shareText)
+                type = "text/plain"
+            }
+
+            val shareIntent = Intent.createChooser(sendIntent, "Bagikan Hasil")
+            context.startActivity(shareIntent)
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GenerateResultContent(
+    imageUri: Uri?,
+    productName: String,
+    copywriting: String,
+    productDescription: String,
+    tagsAndHashtags: String,
+    isSaving: Boolean,
+    onBackClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    onRegenerateClick: () -> Unit,
+    onShareClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -54,21 +118,14 @@ fun GenerateResult(
                     }
                 },
                 actions = {
-                    val scope = rememberCoroutineScope()
-                    val context = LocalContext.current
                     Button(
-                        onClick = { 
-                            viewModel.saveToHistory(imageUri?.toString()) {
-                                Toast.makeText(context, "Berhasil disimpan ke Riwayat", Toast.LENGTH_SHORT).show()
-                                onBackClick()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        onClick = onSaveClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFFFFF)),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp),
-                        enabled = !viewModel.isSaving
+                        enabled = !isSaving
                     ) {
-                        if (viewModel.isSaving) {
+                        if (isSaving) {
                             CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Icon(Icons.Default.Save, null, modifier = Modifier.size(18.dp))
@@ -116,11 +173,11 @@ fun GenerateResult(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Result Sections
-            ResultCard("COPYWRITING PRODUCT", viewModel.copywriting)
+            ResultCard("COPYWRITING PRODUCT", copywriting)
             Spacer(modifier = Modifier.height(16.dp))
-            ResultCard("PRODUCT DESCRIPTION", viewModel.productDescription)
+            ResultCard("PRODUCT DESCRIPTION", productDescription)
             Spacer(modifier = Modifier.height(16.dp))
-            ResultCard("TAGS & HASHTAGS", viewModel.tagsAndHashtags)
+            ResultCard("TAGS & HASHTAGS", tagsAndHashtags)
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -129,7 +186,7 @@ fun GenerateResult(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedButton(
-                    onClick = { /* Share Logic */ },
+                    onClick = onShareClick,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.Gray)
@@ -140,10 +197,10 @@ fun GenerateResult(
                 }
 
                 Button(
-                    onClick = { viewModel.regenerate() },
+                    onClick = onRegenerateClick,
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF065FF6))
                 ) {
                     Icon(Icons.Default.Refresh, null)
                     Spacer(modifier = Modifier.width(8.dp))
@@ -156,6 +213,7 @@ fun GenerateResult(
 
 @Composable
 fun ResultCard(title: String, content: String) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,9 +227,43 @@ fun ResultCard(title: String, content: String) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, color = Color(0xFF8A2BE2), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Icon(Icons.Default.ContentCopy, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+            IconButton(
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText(title, content)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, "$title disalin!", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Salin $title",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(content, color = Color.White, fontSize = 14.sp, lineHeight = 20.sp)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GenerateResultPreview() {
+    CapTagGeneratorTheme {
+        GenerateResultContent(
+            imageUri = null,
+            productName = "Sample Product",
+            copywriting = "This is a sample copywriting for the product. It should be catchy and engaging.",
+            productDescription = "This is a sample product description. It describes the features and benefits of the product.",
+            tagsAndHashtags = "#sample #product #ai #generator",
+            isSaving = false,
+            onBackClick = {},
+            onSaveClick = {},
+            onRegenerateClick = {},
+            onShareClick = {}
+        )
     }
 }

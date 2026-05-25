@@ -137,6 +137,9 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                         onBackClick = { 
                             generateResultViewModel.isFinished = false // Reset state
                             viewModel.navigateTo(Screen.Main) 
+                        },
+                        onRegenerateClick = {
+                            viewModel.navigateTo(Screen.GenerateProcessing)
                         }
                     )
                 }

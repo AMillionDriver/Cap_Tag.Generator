@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +38,9 @@ import com.axoloth.captaggenerator.logic.GenerateScreenViewModel
 import com.axoloth.captaggenerator.logic.GenerateResultViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
+import com.axoloth.captaggenerator.logic.fragment.MicViewModel
+import com.axoloth.captaggenerator.logic.fragment.RecordingState
+import com.axoloth.captaggenerator.screen.fragment.MicPopUp
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -52,7 +57,8 @@ fun GenerateScreen(
     ocrText: String = "",
     viewModel: GenerateScreenViewModel = viewModel(),
     mainViewModel: MainScreenViewModel = viewModel(),
-    resultViewModel: GenerateResultViewModel = viewModel()
+    resultViewModel: GenerateResultViewModel = viewModel(),
+    micViewModel: MicViewModel = viewModel()
 ) {
     // Inisialisasi awal jika ada teks dari OCR
     androidx.compose.runtime.LaunchedEffect(ocrText) {
@@ -89,7 +95,8 @@ fun GenerateScreen(
                 tone = viewModel.selectedTone
             )
             mainViewModel.navigateTo(Screen.GenerateProcessing)
-        }
+        },
+        micViewModel = micViewModel
     )
 }
 
@@ -111,295 +118,325 @@ fun GenerateScreenContent(
     selectedTone: String,
     onSelectedToneChange: (String) -> Unit,
     tones: List<String>,
-    onStartProcessing: () -> Unit
+    onStartProcessing: () -> Unit,
+    micViewModel: MicViewModel = viewModel()
 ) {
-    CapTagGeneratorTheme(darkTheme = true) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "Generate Caption",
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center,
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(
-                            onClick = onBackClick,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .background(Color.White, CircleShape)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.Black
+    Box(modifier = Modifier.fillMaxSize()) {
+        CapTagGeneratorTheme(darkTheme = true) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                "Generate Caption",
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Bold
                             )
-                        }
-                    },
-                    actions = {
-                        Spacer(modifier = Modifier.width(48.dp)) // To balance the center title
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Black,
-                        titleContentColor = Color.White
-                    )
-                )
-            },
-            containerColor = Color.Black
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(Color.Black)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Image Preview Card
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp)
-                        .border(
-                            width = 2.dp,
-                            brush = Brush.linearGradient(
-                                colors = listOf(GenerateAccentPurple, Color.Transparent, GenerateAccentPurple)
-                            ),
-                            shape = RoundedCornerShape(24.dp)
-                        )
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(GenerateCardBg)
-                ) {
-                    if (selectedImageUri != null) {
-                        Image(
-                            painter = rememberAsyncImagePainter(selectedImageUri),
-                            contentDescription = "Selected Image",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-
-                    // Floating Corners
-                    CornerMarkers()
-
-                    // Bottom info bar in the image card
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.5f))
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                        Text(
-                            text = "Uploaded: $date",
-                            color = Color.White,
-                            fontSize = 12.sp
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = Color.White,
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clickable { onBackClick() }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Input Section: Product Model
-                OutlinedTextField(
-                    value = productModel,
-                    onValueChange = onProductModelChange,
-                    label = { Text("Deskripsikan tentang model product anda") },
-                    placeholder = { Text("Misal:") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GenerateAccentPurple,
-                        unfocusedBorderColor = GenerateSecondaryText,
-                        focusedLabelColor = GenerateAccentPurple,
-                        cursorColor = GenerateAccentPurple
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Text(
-                    text = "Misal: Sepatu lari premium, Headphones noise-cancelling...",
-                    color = GenerateSecondaryText,
-                    fontSize = 10.sp,
-                    modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Input Section: Product Purpose
-                OutlinedTextField(
-                    value = productPurpose,
-                    onValueChange = onProductPurposeChange,
-                    label = { Text("Deskripsikan tujuan penggunaan product anda") },
-                    placeholder = { Text("Misal:") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = GenerateAccentPurple,
-                        unfocusedBorderColor = GenerateSecondaryText,
-                        focusedLabelColor = GenerateAccentPurple,
-                        cursorColor = GenerateAccentPurple
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                Text(
-                    text = "Misal: Untuk olahraga, Untuk kerja fokus...",
-                    color = GenerateSecondaryText,
-                    fontSize = 10.sp,
-                    modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Input Section: Keywords
-                Text(
-                    text = "Kata kunci opsional (pisahkan dengan koma)",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = keywordsInput,
-                        onValueChange = onKeywordsInputChange,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Tambah kata kunci...") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GenerateAccentPurple,
-                            unfocusedBorderColor = GenerateSecondaryText
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    keywords.forEach { keyword ->
-                        InputChip(
-                            selected = true,
-                            onClick = { onRemoveKeyword(keyword) },
-                            label = { Text(keyword) },
-                            trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp)) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Input Section: Tone of Voice
-                var expanded by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = selectedTone,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Nada Bicara Caption") },
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                         },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = GenerateAccentPurple,
-                            unfocusedBorderColor = GenerateSecondaryText
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                        navigationIcon = {
+                            IconButton(
+                                onClick = onBackClick,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .background(Color.White, CircleShape)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.Black
+                                )
+                            }
+                        },
+                        actions = {
+                            Spacer(modifier = Modifier.width(48.dp)) // To balance the center title
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Black,
+                            titleContentColor = Color.White
+                        )
                     )
+                },
+                containerColor = Color.Black
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .background(Color.Black)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Image Preview Card
                     Box(
                         modifier = Modifier
-                            .matchParentSize()
-                            .clickable { expanded = !expanded }
-                    )
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        modifier = Modifier.fillMaxWidth(0.9f).background(GenerateCardBg)
+                            .fillMaxWidth()
+                            .height(250.dp)
+                            .border(
+                                width = 2.dp,
+                                brush = Brush.linearGradient(
+                                    colors = listOf(GenerateAccentPurple, Color.Transparent, GenerateAccentPurple)
+                                ),
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(GenerateCardBg)
                     ) {
-                        tones.forEach { tone ->
-                            DropdownMenuItem(
-                                text = { Text(tone, color = Color.White) },
-                                onClick = {
-                                    onSelectedToneChange(tone)
-                                    expanded = false
-                                }
+                        if (selectedImageUri != null) {
+                            Image(
+                                painter = rememberAsyncImagePainter(selectedImageUri),
+                                contentDescription = "Selected Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+
+                        // Floating Corners
+                        CornerMarkers()
+
+                        // Bottom info bar in the image card
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                            Text(
+                                text = "Uploaded: $date",
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clickable { onBackClick() }
                             )
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                // Voice Input FAB
-                FloatingActionButton(
-                    onClick = { /* UI Only for now */ },
-                    containerColor = GenerateAccentPurple,
-                    contentColor = Color.White,
-                    shape = CircleShape,
-                    modifier = Modifier.size(62.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice Input",
-                        modifier = Modifier.size(36.dp)
+                    // Input Section: Product Model
+                    OutlinedTextField(
+                        value = productModel,
+                        onValueChange = onProductModelChange,
+                        label = { Text("Deskripsikan tentang model product anda") },
+                        placeholder = { Text("Misal:") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GenerateAccentPurple,
+                            unfocusedBorderColor = GenerateSecondaryText,
+                            focusedLabelColor = GenerateAccentPurple,
+                            cursorColor = GenerateAccentPurple
+                        ),
+                        shape = RoundedCornerShape(12.dp)
                     )
-                }
+                    Text(
+                        text = "Misal: Sepatu lari premium, Headphones noise-cancelling...",
+                        color = GenerateSecondaryText,
+                        fontSize = 10.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
+                    )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // Action Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        border = BorderStroke(2.dp, GenerateAccentPurple),
-                        shape = RoundedCornerShape(28.dp)
+                    // Input Section: Product Purpose
+                    OutlinedTextField(
+                        value = productPurpose,
+                        onValueChange = onProductPurposeChange,
+                        label = { Text("Deskripsikan tujuan penggunaan product anda") },
+                        placeholder = { Text("Misal:") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = GenerateAccentPurple,
+                            unfocusedBorderColor = GenerateSecondaryText,
+                            focusedLabelColor = GenerateAccentPurple,
+                            cursorColor = GenerateAccentPurple
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        text = "Misal: Untuk olahraga, Untuk kerja fokus...",
+                        color = GenerateSecondaryText,
+                        fontSize = 10.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Input Section: Keywords
+                    Text(
+                        text = "Kata kunci opsional (pisahkan dengan koma)",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Batal", color = Color.White, fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = keywordsInput,
+                            onValueChange = onKeywordsInputChange,
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Tambah kata kunci...") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = GenerateAccentPurple,
+                                unfocusedBorderColor = GenerateSecondaryText
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
 
-                    Button(
-                        onClick = onStartProcessing,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = GenerateAccentPurple),
-                        shape = RoundedCornerShape(28.dp)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Mulai Sekarang", color = Color.White, fontWeight = FontWeight.Bold)
+                        keywords.forEach { keyword ->
+                            InputChip(
+                                selected = true,
+                                onClick = { onRemoveKeyword(keyword) },
+                                label = { Text(keyword) },
+                                trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp)) }
+                            )
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Ensure your data is descriptive for best results",
-                    color = GenerateSecondaryText,
-                    fontSize = 12.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Input Section: Tone of Voice
+                    var expanded by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = selectedTone,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Nada Bicara Caption") },
+                            modifier = Modifier.fillMaxWidth(),
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = GenerateAccentPurple,
+                                unfocusedBorderColor = GenerateSecondaryText
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { expanded = !expanded }
+                        )
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.fillMaxWidth(0.9f).background(GenerateCardBg)
+                        ) {
+                            tones.forEach { tone ->
+                                DropdownMenuItem(
+                                    text = { Text(tone, color = Color.White) },
+                                    onClick = {
+                                        onSelectedToneChange(tone)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // Voice Input FAB
+                    FloatingActionButton(
+                        onClick = { /* Handle normal click if needed */ },
+                        containerColor = GenerateAccentPurple,
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .pointerInput(Unit) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { micViewModel.startRecording() },
+                                    onDragEnd = {
+                                        if (micViewModel.recordingState == RecordingState.RECORDING) {
+                                            micViewModel.stopRecording(true)
+                                        }
+                                    },
+                                    onDragCancel = { micViewModel.cancelRecording() },
+                                    onDrag = { change, dragAmount ->
+                                        if (micViewModel.recordingState == RecordingState.RECORDING) {
+                                            if (dragAmount.y < -100) { // Swipe up to lock
+                                                micViewModel.lockRecording()
+                                            } else if (dragAmount.x < -100) { // Swipe left to cancel
+                                                micViewModel.cancelRecording()
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = "Voice Input",
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.weight(1f).height(56.dp),
+                            border = BorderStroke(2.dp, GenerateAccentPurple),
+                            shape = RoundedCornerShape(28.dp)
+                        ) {
+                            Text("Batal", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = onStartProcessing,
+                            modifier = Modifier.weight(1f).height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = GenerateAccentPurple),
+                            shape = RoundedCornerShape(28.dp)
+                        ) {
+                            Text("Mulai Sekarang", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Ensure your data is descriptive for best results",
+                        color = GenerateSecondaryText,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
             }
         }
+
+        // Overlay Mic PopUp
+        MicPopUp(
+            viewModel = micViewModel,
+            onClose = { /* Handle popup close */ }
+        )
     }
 }
 

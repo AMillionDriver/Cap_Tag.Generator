@@ -1,5 +1,7 @@
 package com.axoloth.captaggenerator.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -15,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
@@ -27,17 +30,20 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.axoloth.captaggenerator.logic.GenerateScreenViewModel
 import com.axoloth.captaggenerator.logic.GenerateResultViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
+import com.axoloth.captaggenerator.logic.SettingScreenViewModel
 import com.axoloth.captaggenerator.logic.fragment.MicViewModel
 import com.axoloth.captaggenerator.logic.fragment.RecordingState
 import com.axoloth.captaggenerator.screen.fragment.MicPopUp
@@ -58,11 +64,25 @@ fun GenerateScreen(
     viewModel: GenerateScreenViewModel = viewModel(),
     mainViewModel: MainScreenViewModel = viewModel(),
     resultViewModel: GenerateResultViewModel = viewModel(),
-    micViewModel: MicViewModel = viewModel()
+    micViewModel: MicViewModel = viewModel(),
+    settingViewModel: SettingScreenViewModel = viewModel(factory = SettingScreenViewModelFactory(LocalContext.current)),
 ) {
+    // Sync business info from settings as default if not already set
+    LaunchedEffect(Unit) {
+        if (viewModel.businessName.isEmpty()) {
+            viewModel.businessName = settingViewModel.businessName
+        }
+        if (viewModel.salesLink.isEmpty()) {
+            viewModel.salesLink = settingViewModel.salesLink
+        }
+    }
+
     // Reset inputs when the selected image changes or is removed
     LaunchedEffect(selectedImageUri) {
         viewModel.resetInputs()
+        // Re-sync after reset
+        viewModel.businessName = settingViewModel.businessName
+        viewModel.salesLink = settingViewModel.salesLink
     }
 
     // Inisialisasi awal jika ada teks dari OCR
@@ -75,6 +95,7 @@ fun GenerateScreen(
 
     GenerateScreenContent(
         selectedImageUri = selectedImageUri,
+        onImageSelected = { mainViewModel.onImageSelected(it) },
         onBackClick = onBackClick,
         productModel = viewModel.productModel,
         onProductModelChange = { viewModel.productModel = it },
@@ -92,13 +113,19 @@ fun GenerateScreen(
         selectedTone = viewModel.selectedTone,
         onSelectedToneChange = { viewModel.selectedTone = it },
         tones = viewModel.tones,
+        businessName = viewModel.businessName,
+        onBusinessNameChange = { viewModel.businessName = it },
+        salesLink = viewModel.salesLink,
+        onSalesLinkChange = { viewModel.salesLink = it },
         onStartProcessing = {
             resultViewModel.startProcessing(
                 productName = viewModel.productModel,
                 productModel = viewModel.productModel,
                 productPurpose = viewModel.productPurpose,
                 userKeywords = viewModel.keywords.toList(),
-                tone = viewModel.selectedTone
+                tone = viewModel.selectedTone,
+                businessName = viewModel.businessName,
+                salesLink = viewModel.salesLink
             )
             // Clear inputs after starting process so they are fresh for next time
             viewModel.resetInputs()
@@ -114,6 +141,7 @@ fun GenerateScreen(
 @Composable
 fun GenerateScreenContent(
     selectedImageUri: Uri?,
+    onImageSelected: (Uri?) -> Unit = {},
     onBackClick: () -> Unit,
     productModel: String,
     onProductModelChange: (String) -> Unit,
@@ -126,9 +154,19 @@ fun GenerateScreenContent(
     selectedTone: String,
     onSelectedToneChange: (String) -> Unit,
     tones: List<String>,
+    businessName: String,
+    onBusinessNameChange: (String) -> Unit,
+    salesLink: String,
+    onSalesLinkChange: (String) -> Unit,
     onStartProcessing: () -> Unit,
     micViewModel: MicViewModel = viewModel()
 ) {
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        onImageSelected(uri)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         CapTagGeneratorTheme(darkTheme = true) {
             Scaffold(
@@ -190,6 +228,8 @@ fun GenerateScreenContent(
                             )
                             .clip(RoundedCornerShape(24.dp))
                             .background(GenerateCardBg)
+                            .clickable { if (selectedImageUri == null) galleryLauncher.launch("image/*") },
+                        contentAlignment = Alignment.Center
                     ) {
                         if (selectedImageUri != null) {
                             Image(
@@ -198,35 +238,58 @@ fun GenerateScreenContent(
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = "Add Image",
+                                    tint = GenerateAccentPurple,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    "Tambahkan Foto Produk",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Klik untuk memilih gambar",
+                                    color = GenerateSecondaryText,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
 
                         // Floating Corners
                         CornerMarkers()
 
                         // Bottom info bar in the image card
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                            Text(
-                                text = "Uploaded: $date",
-                                color = Color.White,
-                                fontSize = 12.sp
-                            )
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color.White,
+                        if (selectedImageUri != null) {
+                            Row(
                                 modifier = Modifier
-                                    .size(20.dp)
-                                    .clickable { onBackClick() }
-                            )
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                Text(
+                                    text = "Uploaded: $date",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete",
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clickable { onImageSelected(null) }
+                                )
+                            }
                         }
                     }
 
@@ -365,6 +428,53 @@ fun GenerateScreenContent(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
+                    // Business Info Section (Smart Metadata Injection)
+                    Text(
+                        text = "Profil Bisnis di Caption",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = GenerateCardBg.copy(alpha = 0.5f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            OutlinedTextField(
+                                value = businessName,
+                                onValueChange = onBusinessNameChange,
+                                label = { Text("Nama Usaha") },
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = TextStyle(fontSize = 14.sp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = GenerateAccentPurple,
+                                    unfocusedBorderColor = GenerateSecondaryText
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = salesLink,
+                                onValueChange = onSalesLinkChange,
+                                label = { Text("Link Jualan") },
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = TextStyle(fontSize = 14.sp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = GenerateAccentPurple,
+                                    unfocusedBorderColor = GenerateSecondaryText
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
                     // Voice Input FAB
                     FloatingActionButton(
                         onClick = { /* Handle normal click if needed */ },
@@ -382,7 +492,7 @@ fun GenerateScreenContent(
                                         }
                                     },
                                     onDragCancel = { micViewModel.cancelRecording() },
-                                    onDrag = { change, dragAmount ->
+                                    onDrag = { _, dragAmount ->
                                         if (micViewModel.recordingState == RecordingState.RECORDING) {
                                             if (dragAmount.y < -100) { // Swipe up to lock
                                                 micViewModel.lockRecording()
@@ -499,6 +609,7 @@ fun FlowRow(
 fun GenerateScreenPreview() {
     GenerateScreenContent(
         selectedImageUri = null,
+        onImageSelected = {},
         onBackClick = {},
         productModel = "Sepatu Lari Nike",
         onProductModelChange = {},
@@ -511,6 +622,10 @@ fun GenerateScreenPreview() {
         selectedTone = "Hype",
         onSelectedToneChange = {},
         tones = listOf("Hype", "Formal", "Santai", "Profesional", "Lucu"),
+        businessName = "Toko Olahraga Jaya",
+        onBusinessNameChange = {},
+        salesLink = "https://wa.me/628123456789",
+        onSalesLinkChange = {},
         onStartProcessing = {}
     )
 }

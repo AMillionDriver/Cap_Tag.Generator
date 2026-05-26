@@ -23,8 +23,8 @@ android {
         applicationId = "com.axoloth.captaggenerator"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.8.6-ALPHA"
+        versionCode = 18
+        versionName = "1.12.8-ALPHA"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

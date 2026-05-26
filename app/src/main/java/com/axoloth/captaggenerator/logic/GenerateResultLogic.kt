@@ -38,7 +38,9 @@ class GenerateResultViewModel(private val userDao: UserDao) : ViewModel() {
                         productModel = "", // Optional: history might not store this separately
                         productPurpose = "",
                         userKeywords = emptyList(),
-                        tone = ""
+                        tone = "",
+                        businessName = "",
+                        salesLink = ""
                     )
                     isFinished = true
                 }
@@ -51,14 +53,16 @@ class GenerateResultViewModel(private val userDao: UserDao) : ViewModel() {
         productModel: String,
         productPurpose: String,
         userKeywords: List<String>,
-        tone: String
+        tone: String,
+        businessName: String = "",
+        salesLink: String = ""
     ) {
-        lastParams = GenerationParams(productName, productModel, productPurpose, userKeywords, tone)
+        lastParams = GenerationParams(productName, productModel, productPurpose, userKeywords, tone, businessName, salesLink)
         isFinished = false
         
         viewModelScope.launch {
             AiQueSystem.startGenerationQueue(
-                productName, productModel, productPurpose, userKeywords, tone
+                productName, productModel, productPurpose, userKeywords, tone, businessName, salesLink
             ).collect { step ->
                 currentStep = step
                 if (step is GenerationStep.Completed) {
@@ -78,7 +82,9 @@ class GenerateResultViewModel(private val userDao: UserDao) : ViewModel() {
                 params.productModel,
                 params.productPurpose,
                 params.userKeywords,
-                params.tone
+                params.tone,
+                params.businessName,
+                params.salesLink
             )
         }
     }
@@ -105,6 +111,8 @@ class GenerateResultViewModel(private val userDao: UserDao) : ViewModel() {
         val productModel: String,
         val productPurpose: String,
         val userKeywords: List<String>,
-        val tone: String
+        val tone: String,
+        val businessName: String,
+        val salesLink: String
     )
 }

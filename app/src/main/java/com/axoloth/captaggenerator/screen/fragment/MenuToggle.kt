@@ -133,7 +133,7 @@ fun SideMenuContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Kategori: ${accountViewModel.category}",
+                        text = "Kategori: ${settingViewModel.umkmCategory}",
                         color = MenuTextSecondary,
                         fontSize = 14.sp
                     )

@@ -31,7 +31,9 @@ object AiQueSystem {
         productModel: String,
         productPurpose: String,
         userKeywords: List<String>,
-        tone: String
+        tone: String,
+        businessName: String = "",
+        salesLink: String = ""
     ): Flow<GenerationStep> = flow {
         
         // 1. Tahap Inisialisasi & Request (Visual Delay 10 detik)
@@ -39,7 +41,7 @@ object AiQueSystem {
         
         // Jalankan request AI di background sesegera mungkin
         val aiResultDeferred = try {
-            fetchAiData(productName, productModel, productPurpose, userKeywords, tone)
+            fetchAiData(productName, productModel, productPurpose, userKeywords, tone, businessName, salesLink)
         } catch (e: Exception) {
             null
         }
@@ -72,7 +74,7 @@ object AiQueSystem {
     }
 
     private suspend fun fetchAiData(
-        name: String, model: String, purpose: String, keywords: List<String>, tone: String
+        name: String, model: String, purpose: String, keywords: List<String>, tone: String, businessName: String, salesLink: String
     ): AiResponse? {
         val encryptedKey = AiFetchingLogic.fetchAndSecureGeminiKey() ?: return null
         val apiKey = AiFetchingLogic.getReadyApiKey(encryptedKey)
@@ -93,6 +95,10 @@ object AiQueSystem {
             Tujuan: $purpose
             Kata Kunci: ${keywords.joinToString(", ")}
             Nada Bicara: $tone
+            
+            INFORMASI USAHA (Wajib disisipkan di akhir copywriting secara natural sebagai Call to Action):
+            Nama Usaha: $businessName
+            Link Jualan: $salesLink
 
             Berikan respon HANYA dalam format JSON mentah dengan struktur berikut:
             {

@@ -15,6 +15,9 @@ class GenerateScreenViewModel : ViewModel() {
     var selectedTone by mutableStateOf("Hype")
     val tones = listOf("Hype", "Formal", "Santai", "Profesional", "Lucu")
 
+    var businessName by mutableStateOf("")
+    var salesLink by mutableStateOf("")
+
     fun addKeyword() {
         if (keywordsInput.isNotBlank()) {
             val newKeywords = keywordsInput.split(",").map { it.trim() }.filter { it.isNotEmpty() }
@@ -33,6 +36,8 @@ class GenerateScreenViewModel : ViewModel() {
         keywordsInput = ""
         keywords.clear()
         selectedTone = "Hype"
+        businessName = ""
+        salesLink = ""
     }
 
     fun onGenerateClick() {

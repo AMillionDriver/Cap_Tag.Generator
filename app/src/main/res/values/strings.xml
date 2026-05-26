@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Lapak AI</string>
+    <string name="shortcut_generate">Mulai Generate</string>
+    <string name="shortcut_generate_long">Mulai Buat Caption AI</string>
+    <string name="shortcut_history">Lihat Riwayat</string>
+    <string name="shortcut_history_long">Lihat Riwayat Generate Caption</string>
 </resources>

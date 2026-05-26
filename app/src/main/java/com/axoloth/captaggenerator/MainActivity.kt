@@ -33,6 +33,17 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
+            val mainViewModel: com.axoloth.captaggenerator.logic.MainScreenViewModel = viewModel()
+
+            // Handle App Shortcut intents
+            LaunchedEffect(intent) {
+                intent?.getStringExtra("shortcut_action")?.let { action ->
+                    when (action) {
+                        "action_generate" -> mainViewModel.navigateTo(com.axoloth.captaggenerator.logic.Screen.Generate())
+                        "action_history" -> mainViewModel.navigateTo(com.axoloth.captaggenerator.logic.Screen.History)
+                    }
+                }
+            }
             
             // Database and Repository initialization
             var isDatabaseReady by remember { mutableStateOf(false) }
@@ -70,7 +81,7 @@ class MainActivity : FragmentActivity() {
                     val fingerprintService = remember(activity) { activity?.let { FingerPrint(it) } }
 
                     if (isAuthenticated) {
-                        MainScreen()
+                        MainScreen(viewModel = mainViewModel)
                     } else {
                         // Tampilkan Dialog Biometric saat baru buka app
                         LaunchedEffect(Unit) {

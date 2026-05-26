@@ -27,6 +27,14 @@ class GenerateScreenViewModel : ViewModel() {
         keywords.remove(keyword)
     }
 
+    fun resetInputs() {
+        productModel = ""
+        productPurpose = ""
+        keywordsInput = ""
+        keywords.clear()
+        selectedTone = "Hype"
+    }
+
     fun onGenerateClick() {
         // Logic untuk generate nantinya
     }

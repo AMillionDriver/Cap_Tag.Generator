@@ -60,9 +60,15 @@ fun GenerateScreen(
     resultViewModel: GenerateResultViewModel = viewModel(),
     micViewModel: MicViewModel = viewModel()
 ) {
+    // Reset inputs when the selected image changes or is removed
+    LaunchedEffect(selectedImageUri) {
+        viewModel.resetInputs()
+    }
+
     // Inisialisasi awal jika ada teks dari OCR
     androidx.compose.runtime.LaunchedEffect(ocrText) {
-        if (ocrText.isNotBlank() && viewModel.productModel.isBlank()) {
+        if (ocrText.isNotBlank()) {
+            // Jika ada OCR baru, masukkan ke productModel
             viewModel.productModel = ocrText
         }
     }
@@ -94,6 +100,8 @@ fun GenerateScreen(
                 userKeywords = viewModel.keywords.toList(),
                 tone = viewModel.selectedTone
             )
+            // Clear inputs after starting process so they are fresh for next time
+            viewModel.resetInputs()
             mainViewModel.navigateTo(Screen.GenerateProcessing)
         },
         micViewModel = micViewModel

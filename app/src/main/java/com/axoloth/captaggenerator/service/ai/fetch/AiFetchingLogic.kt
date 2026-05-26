@@ -53,7 +53,7 @@ object AiFetchingLogic {
     /**
      * Memperoleh API Key asli yang siap digunakan untuk request AI.
      */
-    fun getReadyApiKey(encryptedKey: String): String {
+    suspend fun getReadyApiKey(encryptedKey: String): String {
         return try {
             AesSecurity.decrypt(encryptedKey)
         } catch (e: Exception) {

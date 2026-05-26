@@ -103,6 +103,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
 
     // Google ML Kit Language ID & Translation
+    // Standardizing versions to avoid duplicate classes in mlkit:common
     implementation("com.google.mlkit:language-id:17.0.6")
     implementation("com.google.mlkit:translate:17.0.3")
 

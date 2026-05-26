@@ -14,13 +14,11 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.SupportAgent
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,18 +33,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalInspectionMode
 import coil.compose.rememberAsyncImagePainter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.SettingScreenViewModel
-import com.axoloth.captaggenerator.logic.fragment.HistoryManager
-import com.axoloth.captaggenerator.screen.fragment.SideMenuContent
-import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
-
 import com.axoloth.captaggenerator.logic.AccountViewModel
 import com.axoloth.captaggenerator.logic.AccountViewModelFactory
 import com.axoloth.captaggenerator.logic.GenerateResultViewModelFactory
@@ -57,12 +48,12 @@ import com.axoloth.captaggenerator.room.AppDatabase
 import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
 import com.axoloth.captaggenerator.screen.fragment.LapakWebView
-import com.axoloth.captaggenerator.screen.GenerateScreen
-import com.axoloth.captaggenerator.screen.GenerateResult
 import com.axoloth.captaggenerator.screen.fragment.GenerateSplash
 import com.axoloth.captaggenerator.logic.GenerateResultViewModel
 import com.axoloth.captaggenerator.screen.fragment.AccountScreen
-import com.axoloth.captaggenerator.logic.fragment.HistoryItem as ActivityData
+import com.axoloth.captaggenerator.screen.fragment.SideMenuContent
+import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
+import kotlinx.coroutines.launch
 
 val ColorIconCyan = Color(0xCCA6A2A6)
 val ColorIconDf = Color(0xCC6400FF)
@@ -77,42 +68,36 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val isPreview = LocalInspectionMode.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
     
     // Database and Repository initialization
-    var isDatabaseReady by remember { mutableStateOf(isPreview) }
-    val database = remember { AppDatabase.getInstance(context) }
-    val userRepository = remember { UserRepository(database.userDao()) }
-
-    LaunchedEffect(Unit) {
-        // Safe open database on IO thread
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-            val safeDb = AppDatabase.getSafeInstance(context)
-            if (safeDb != null) {
-                isDatabaseReady = true
-            }
-        }
-    }
+    // Note: We use the already warmed up instance from MainActivity
+    val database = remember { AppDatabase.getSafeInstanceBlocking(context) }
+    val userRepository = remember(database) { database?.let { UserRepository(it.userDao()) } }
 
     // Inisialisasi SettingViewModel di level MainScreen agar state-nya tersinkronisasi
     val settingViewModel: SettingScreenViewModel = viewModel(
         factory = SettingScreenViewModelFactory(LocalContext.current)
     )
     
-    val accountViewModel: AccountViewModel = viewModel(
-        factory = AccountViewModelFactory(userRepository)
-    )
+    val accountViewModel: AccountViewModel? = userRepository?.let { repo ->
+        viewModel(factory = AccountViewModelFactory(repo))
+    }
 
-    val generateResultViewModel: GenerateResultViewModel = viewModel(
-        factory = GenerateResultViewModelFactory(database.userDao())
-    )
+    val generateResultViewModel: GenerateResultViewModel? = database?.let { db ->
+        viewModel(factory = GenerateResultViewModelFactory(db.userDao()))
+    }
+    
+    // Stabilize UI states using derivedStateOf to prevent unnecessary recompositions
+    val currentScreen by remember { derivedStateOf { viewModel.currentScreen } }
+    val selectedImageUri by remember { derivedStateOf { viewModel.selectedImageUri } }
+    val isProcessingOcr by remember { derivedStateOf { viewModel.isProcessingOcr } }
 
     CapTagGeneratorTheme(darkTheme = true) {
-        if (!isDatabaseReady) {
+        if (database == null || userRepository == null || accountViewModel == null || generateResultViewModel == null) {
             SplashDatabaseScreen()
         } else {
-            when (viewModel.currentScreen) {
+            when (currentScreen) {
                 is Screen.GenerateProcessing -> {
                     GenerateSplash(currentStep = generateResultViewModel.currentStep)
                     if (generateResultViewModel.isFinished) {
@@ -120,7 +105,7 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     }
                 }
                 is Screen.GenerateResult -> {
-                    val historyId = (viewModel.currentScreen as? Screen.GenerateResult)?.historyId
+                    val historyId = (currentScreen as? Screen.GenerateResult)?.historyId
                     if (historyId != null) {
                         LaunchedEffect(historyId) {
                             generateResultViewModel.loadFromHistory(historyId)
@@ -132,7 +117,7 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                         imageUri = if (historyId != null) {
                             generateResultViewModel.selectedImageUriString?.let { android.net.Uri.parse(it) }
                         } else {
-                            viewModel.selectedImageUri
+                            selectedImageUri
                         },
                         productName = if (historyId != null) "Riwayat Generate" else "Product AI Generated",
                         viewModel = generateResultViewModel,
@@ -164,10 +149,10 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     )
                 }
                 is Screen.Generate -> {
-                    val ocrText = (viewModel.currentScreen as? Screen.Generate)?.ocrText ?: ""
+                    val ocrText = (currentScreen as? Screen.Generate)?.ocrText ?: ""
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     GenerateScreen(
-                        selectedImageUri = viewModel.selectedImageUri,
+                        selectedImageUri = selectedImageUri,
                         onBackClick = { viewModel.navigateTo(Screen.Main) },
                         ocrText = ocrText
                     )
@@ -187,7 +172,7 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     )
                 }
                 is Screen.WebView -> {
-                    val url = (viewModel.currentScreen as Screen.WebView).url
+                    val url = (currentScreen as Screen.WebView).url
                     BackHandler { viewModel.navigateTo(Screen.Main) }
                     LapakWebView(
                         url = url,
@@ -197,7 +182,7 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                 is Screen.Main -> {
                     BackHandler {
                         val currentTime = System.currentTimeMillis()
-                        if (currentTime - lastBackPressTime < 2000) {
+                        if (currentTime - lastBackPressTime < 2000L) {
                             (context as? Activity)?.finish()
                         } else {
                             lastBackPressTime = currentTime
@@ -246,6 +231,10 @@ fun MainDashboard(
     val recentHistory by viewModel<HistoryViewModel>(
         factory = HistoryViewModelFactory(userDao)
     ).historyItems.collectAsState()
+    
+    // Stabilize UI states
+    val isImageSelected by remember { derivedStateOf { viewModel.selectedImageUri != null } }
+    val isProcessingOcr by remember { derivedStateOf { viewModel.isProcessingOcr } }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -269,10 +258,10 @@ fun MainDashboard(
             topBar = { LapakHeader(onMenuClick = onMenuClick) },
             bottomBar = { 
                 CustomBottomNav(
-                    isImageSelected = viewModel.selectedImageUri != null,
-                    isProcessing = viewModel.isProcessingOcr,
+                    isImageSelected = isImageSelected,
+                    isProcessing = isProcessingOcr,
                     onFabClick = {
-                        if (viewModel.selectedImageUri != null) {
+                        if (isImageSelected) {
                             viewModel.startGenerating(context)
                         } else {
                             galleryLauncher.launch("image/*")
@@ -320,7 +309,10 @@ fun MainDashboard(
                         )
                     }
                 } else {
-                    items(recentHistory.take(3)) { history ->
+                    items(
+                        items = recentHistory.take(3),
+                        key = { it.id } // VITAL: Key for LazyColumn stabilization
+                    ) { history ->
                         ActivityItem(
                             activity = history,
                             onClick = {
@@ -567,7 +559,6 @@ fun CustomBottomNav(
             .height(100.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // ... (rest of the Surface)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()

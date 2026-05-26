@@ -10,16 +10,18 @@ class UserRepository(val userDao: UserDao) {
 
     fun getUser(): Flow<User?> = userDao.getUser().map { entity ->
         entity?.let {
-            User(
-                userName = AesSecurity.decrypt(it.encryptedUserName),
-                businessName = AesSecurity.decrypt(it.encryptedBusinessName),
-                category = AesSecurity.decrypt(it.encryptedCategory),
-                profileImageUri = it.profileImageUri
-            )
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                User(
+                    userName = AesSecurity.decrypt(it.encryptedUserName),
+                    businessName = AesSecurity.decrypt(it.encryptedBusinessName),
+                    category = AesSecurity.decrypt(it.encryptedCategory),
+                    profileImageUri = it.profileImageUri
+                )
+            }
         }
     }
 
-    suspend fun saveUser(user: User) {
+    suspend fun saveUser(user: User) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val entity = UserEntity(
             encryptedUserName = AesSecurity.encrypt(user.userName),
             encryptedBusinessName = AesSecurity.encrypt(user.businessName),

@@ -40,7 +40,7 @@ object AesSecurity {
         return keyStore.getKey(AES_KEY_ALIAS, null) as SecretKey
     }
 
-    fun encrypt(data: String): String {
+    suspend fun encrypt(data: String): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
         val iv = cipher.iv
@@ -51,10 +51,10 @@ object AesSecurity {
         System.arraycopy(iv, 0, combined, 0, iv.size)
         System.arraycopy(encryptedData, 0, combined, iv.size, encryptedData.size)
         
-        return Base64.encodeToString(combined, Base64.DEFAULT)
+        Base64.encodeToString(combined, Base64.DEFAULT)
     }
 
-    fun decrypt(encryptedBase64: String): String {
+    suspend fun decrypt(encryptedBase64: String): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val combined = Base64.decode(encryptedBase64, Base64.DEFAULT)
         val ivSize = 12 // Standard IV size for GCM
         
@@ -65,6 +65,6 @@ object AesSecurity {
         val spec = GCMParameterSpec(128, iv)
         cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
         
-        return String(cipher.doFinal(encryptedData), Charsets.UTF_8)
+        String(cipher.doFinal(encryptedData), Charsets.UTF_8)
     }
 }

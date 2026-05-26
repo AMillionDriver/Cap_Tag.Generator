@@ -17,6 +17,9 @@ class MicMLKIT(private val context: Context) {
     var onError: (String) -> Unit = {}
     var onPartialResult: (String) -> Unit = {}
 
+    /**
+     * Lazy Init: SpeechRecognizer hanya dibuat saat user mulai merekam.
+     */
     fun startListening() {
         if (speechRecognizer == null) {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)

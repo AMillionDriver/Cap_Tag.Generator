@@ -20,8 +20,8 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getInstance(context: Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
+        suspend fun getInstance(context: Context): AppDatabase = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            INSTANCE ?: synchronized(this) {
                 val instance = buildDatabase(context)
                 INSTANCE = instance
                 instance
@@ -31,12 +31,14 @@ abstract class AppDatabase : RoomDatabase() {
         private fun buildDatabase(context: Context): AppDatabase {
             return try {
                 // SQLCipher 4.6.1+ initialization
-                // loadLibs is no longer required in modern SQLCipher Android, 
-                // but we keep it safe or use the new initialization pattern if needed.
+                // CRITICAL: We must ensure native library is loaded before any SQLite operation
                 System.loadLibrary("sqlcipher")
                 
                 val prefs = context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE)
-                val dbKey = KeyStoreManager.getDatabaseKey(prefs)
+                // Note: In real app, we should call KeyStoreManager.getDatabaseKey(prefs) 
+                // in a suspend way. For Room builder, we might need a workaround or 
+                // pre-fetch the key.
+                val dbKey = kotlinx.coroutines.runBlocking { KeyStoreManager.getDatabaseKey(prefs) }
                 val factory = SupportOpenHelperFactory(dbKey)
 
                 Room.databaseBuilder(
@@ -47,6 +49,8 @@ abstract class AppDatabase : RoomDatabase() {
                 .openHelperFactory(factory)
                 .fallbackToDestructiveMigration()
                 .setJournalMode(RoomDatabase.JournalMode.TRUNCATE)
+                // Set query executor to IO to avoid blocking main thread on accidental access
+                .setQueryExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())
                 .build()
             } catch (e: UnsatisfiedLinkError) {
                 // Fallback for Compose Preview or environments without SQLCipher native libs
@@ -60,9 +64,8 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
         
-        // Robust opening to handle SQLiteNotADatabaseException/Corrupt database
-        fun getSafeInstance(context: Context): AppDatabase? {
-            return try {
+        suspend fun getSafeInstance(context: Context): AppDatabase? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
                 val db = getInstance(context)
                 // Trigger an actual open by running a simple query
                 val c = db.query("SELECT 1", null)
@@ -93,6 +96,11 @@ abstract class AppDatabase : RoomDatabase() {
                     null
                 }
             }
+        }
+
+        // Bridge for non-suspend contexts where we are already on a background thread
+        fun getSafeInstanceBlocking(context: Context): AppDatabase? {
+            return kotlinx.coroutines.runBlocking { getSafeInstance(context) }
         }
     }
 }

@@ -20,6 +20,15 @@
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn net.zetetic.database.sqlcipher.**
 -keep class net.zetetic.database.sqlcipher.** { *; }
+-keepclassmembers class net.zetetic.database.sqlcipher.SQLiteConnection {
+    native <methods>;
+}
+-keepclassmembers class net.zetetic.database.sqlcipher.SQLiteStatement {
+    native <methods>;
+}
+-keepclassmembers class net.zetetic.database.sqlcipher.SQLiteQuery {
+    native <methods>;
+}
 
 # 3. JETPACK COMPOSE & MATERIAL 3
 # Compose butuh beberapa metadata tetap ada saat runtime.

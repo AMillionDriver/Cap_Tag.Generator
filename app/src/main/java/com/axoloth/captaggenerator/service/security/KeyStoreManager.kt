@@ -17,7 +17,7 @@ object KeyStoreManager {
     // We use a wrapper key in Keystore to encrypt/decrypt the actual 32-byte database key
     // because SQLCipher requires a raw byte array key.
     
-    fun getDatabaseKey(prefs: android.content.SharedPreferences): ByteArray {
+    suspend fun getDatabaseKey(prefs: android.content.SharedPreferences): ByteArray = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val encryptedKey = prefs.getString("encrypted_db_key", null)
         val rawKey = if (encryptedKey == null) {
             val generated = ByteArray(32).apply { SecureRandom().nextBytes(this) }
@@ -34,7 +34,7 @@ object KeyStoreManager {
         for (i in rawKey.indices) {
             finalKey[i] = (rawKey[i].toInt() xor salt[i % salt.size].toInt()).toByte()
         }
-        return finalKey
+        finalKey
     }
 
     private fun encryptWithWrapper(data: ByteArray): String {

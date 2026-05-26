@@ -2,23 +2,38 @@ package com.axoloth.captaggenerator.service
 
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.languageid.LanguageIdentifier
+import kotlinx.coroutines.launch
 
 class MLKITIdentifikasiBahasa {
-    private val languageIdentifier: LanguageIdentifier = LanguageIdentification.getClient()
+    private var languageIdentifier: LanguageIdentifier? = null
 
+    /**
+     * Lazy Init: Client identifikasi bahasa hanya dibuat saat akan digunakan.
+     */
     fun identifyLanguage(text: String, onResult: (String) -> Unit) {
         if (text.isBlank()) return
         
-        languageIdentifier.identifyLanguage(text)
-            .addOnSuccessListener { languageCode ->
-                if (languageCode != "und") {
-                    onResult(languageCode)
-                } else {
-                    onResult("unknown")
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            if (languageIdentifier == null) {
+                languageIdentifier = LanguageIdentification.getClient()
+            }
+            
+            languageIdentifier!!.identifyLanguage(text)
+                .addOnSuccessListener { languageCode ->
+                    if (languageCode != "und") {
+                        onResult(languageCode)
+                    } else {
+                        onResult("unknown")
+                    }
                 }
-            }
-            .addOnFailureListener {
-                onResult("error")
-            }
+                .addOnFailureListener {
+                    onResult("error")
+                }
+        }
+    }
+    
+    fun close() {
+        languageIdentifier?.close()
+        languageIdentifier = null
     }
 }

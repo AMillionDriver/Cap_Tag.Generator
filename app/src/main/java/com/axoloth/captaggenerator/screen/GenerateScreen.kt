@@ -133,6 +133,17 @@ fun GenerateScreen(
         },
         micViewModel = micViewModel
     )
+    
+    // Apply transcription results to the selected destination
+    LaunchedEffect(micViewModel.transcriptionDestination, micViewModel.finalResultText) {
+        if (micViewModel.transcriptionDestination != null && micViewModel.finalResultText.isNotEmpty()) {
+            when (micViewModel.transcriptionDestination) {
+                "model" -> viewModel.productModel = micViewModel.finalResultText
+                "purpose" -> viewModel.productPurpose = micViewModel.finalResultText
+            }
+            micViewModel.applyResultToDestination()
+        }
+    }
 }
 
 
@@ -165,6 +176,12 @@ fun GenerateScreenContent(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         onImageSelected(uri)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        micViewModel.updatePermissionStatus(isGranted)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -477,31 +494,39 @@ fun GenerateScreenContent(
 
                     // Voice Input FAB
                     FloatingActionButton(
-                        onClick = { /* Handle normal click if needed */ },
-                        containerColor = GenerateAccentPurple,
+                        onClick = { 
+                            if (!micViewModel.hasPermission) {
+                                permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                            } else {
+                                micViewModel.startRecordingFlow()
+                            }
+                        },
+                        containerColor = if (micViewModel.hasPermission) GenerateAccentPurple else Color.Gray,
                         contentColor = Color.White,
                         shape = CircleShape,
                         modifier = Modifier
                             .size(72.dp)
-                            .pointerInput(Unit) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = { micViewModel.startRecording() },
-                                    onDragEnd = {
-                                        if (micViewModel.recordingState == RecordingState.RECORDING) {
-                                            micViewModel.stopRecording(true)
-                                        }
-                                    },
-                                    onDragCancel = { micViewModel.cancelRecording() },
-                                    onDrag = { _, dragAmount ->
-                                        if (micViewModel.recordingState == RecordingState.RECORDING) {
-                                            if (dragAmount.y < -100) { // Swipe up to lock
-                                                micViewModel.lockRecording()
-                                            } else if (dragAmount.x < -100) { // Swipe left to cancel
-                                                micViewModel.cancelRecording()
+                            .pointerInput(micViewModel.hasPermission) {
+                                if (micViewModel.hasPermission) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { micViewModel.startRecordingFlow() },
+                                        onDragEnd = {
+                                            if (micViewModel.recordingState == RecordingState.RECORDING) {
+                                                micViewModel.stopRecording(true)
+                                            }
+                                        },
+                                        onDragCancel = { micViewModel.cancelRecording() },
+                                        onDrag = { _, dragAmount ->
+                                            if (micViewModel.recordingState == RecordingState.RECORDING) {
+                                                if (dragAmount.y < -100) { // Swipe up to lock
+                                                    micViewModel.lockRecording()
+                                                } else if (dragAmount.x < -100) { // Swipe left to cancel
+                                                    micViewModel.cancelRecording()
+                                                }
                                             }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                     ) {
                         Icon(

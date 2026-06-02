@@ -30,7 +30,7 @@ import java.util.Locale
 @Composable
 fun MicPopUp(
     viewModel: MicViewModel,
-    onClose: () -> Unit
+    onClose: () -> Unit,
 ) {
     val state = viewModel.recordingState
     if (state == RecordingState.IDLE) return
@@ -46,12 +46,18 @@ fun MicPopUp(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Animated Mic Icon
+            // Animated Mic Icon with Verification State
             Box(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF8A2BE2)),
+                    .background(
+                        when (state) {
+                            RecordingState.NEED_VERIFICATION -> Color.Gray
+                            RecordingState.VERIFIED -> Color.Green
+                            else -> Color(0xFF8A2BE2)
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -62,43 +68,25 @@ fun MicPopUp(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Timer and Waveform placeholder
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = formatDuration(viewModel.recordingDuration),
-                    color = Color.Red,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                // Placeholder for Waveform
-                Box(
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(40.dp)
-                        .background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                )
-            }
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = when (state) {
+                    RecordingState.NEED_VERIFICATION -> "Ucapkan \"Halo\" untuk memulai..."
+                    RecordingState.VERIFIED -> "Mic Terdeteksi!"
+                    else -> if (state == RecordingState.LOCKED) "Recording Locked" else "slide to cancel"
+                },
+                color = if (state == RecordingState.VERIFIED) Color.Green else Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = if (state == RecordingState.LOCKED) "Recording Locked" else "slide to cancel",
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Real-time transcribed text
+            // Real-time transcribed text (Feedback AI)
             if (viewModel.transcribedText.isNotEmpty()) {
                 Text(
-                    text = viewModel.transcribedText,
+                    text = if (state == RecordingState.NEED_VERIFICATION) "User: ${viewModel.transcribedText}" else viewModel.transcribedText,
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 16.sp,
                     textAlign = TextAlign.Center,
@@ -106,97 +94,164 @@ fun MicPopUp(
                         .fillMaxWidth(0.8f)
                         .padding(bottom = 16.dp)
                 )
+                
+                // Jika sedang verifikasi dan teks terdeteksi, berikan respon AI "Halo"
+                if (state == RecordingState.NEED_VERIFICATION && viewModel.transcribedText.contains("halo", ignoreCase = true)) {
+                    Text(
+                        text = "App: Halo! 👋",
+                        color = Color.Green,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
             }
 
-            // Smart Workflow Options (Hybrid)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(20.dp))
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Grammar Toggle
+            if (state != RecordingState.NEED_VERIFICATION && state != RecordingState.VERIFIED && state != RecordingState.PROCESSING) {
+                // Timer and Waveform
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = null,
-                        tint = if (viewModel.autoCorrectGrammar) Color(0xFF8A2BE2) else Color.Gray,
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = formatDuration(viewModel.recordingDuration),
+                        color = Color.Red,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Perbaiki Tata Bahasa", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = viewModel.autoCorrectGrammar,
-                        onCheckedChange = { viewModel.autoCorrectGrammar = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
-                        modifier = Modifier.scale(0.6f)
-                    )
-                }
-
-                // Rewrite Toggle
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = if (viewModel.autoRewrite) Color(0xFF8A2BE2) else Color.Gray,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Tulis Ulang (${viewModel.rewriteStyle})", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = viewModel.autoRewrite,
-                        onCheckedChange = { viewModel.autoRewrite = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
-                        modifier = Modifier.scale(0.6f)
-                    )
-                }
-
-                // Translate Toggle
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Translate,
-                        contentDescription = null,
-                        tint = if (viewModel.autoTranslate) Color(0xFF8A2BE2) else Color.Gray,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Terjemahkan ke ${viewModel.targetLanguage.uppercase()}", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Switch(
-                        checked = viewModel.autoTranslate,
-                        onCheckedChange = { viewModel.autoTranslate = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
-                        modifier = Modifier.scale(0.6f)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(150.dp)
+                            .height(40.dp)
+                            .background(Color.Gray.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
                     )
                 }
                 
-                Text(
-                    text = "Bahasa terdeteksi: ${viewModel.detectedLanguage.uppercase()}",
-                    color = Color.Gray,
-                    fontSize = 10.sp,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.End
-                )
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Smart Workflow Options (Hybrid)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(20.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Grammar Toggle
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = if (viewModel.autoCorrectGrammar) Color(0xFF8A2BE2) else Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Perbaiki Tata Bahasa", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = viewModel.autoCorrectGrammar,
+                            onCheckedChange = { viewModel.autoCorrectGrammar = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
+                            modifier = Modifier.scale(0.6f)
+                        )
+                    }
+
+                    // Rewrite Toggle
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = if (viewModel.autoRewrite) Color(0xFF8A2BE2) else Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Tulis Ulang (${viewModel.rewriteStyle})", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = viewModel.autoRewrite,
+                            onCheckedChange = { viewModel.autoRewrite = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
+                            modifier = Modifier.scale(0.6f)
+                        )
+                    }
+
+                    // Translate Toggle
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = null,
+                            tint = if (viewModel.autoTranslate) Color(0xFF8A2BE2) else Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Terjemahkan ke ${viewModel.targetLanguage.uppercase()}", color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = viewModel.autoTranslate,
+                            onCheckedChange = { viewModel.autoTranslate = it },
+                            colors = SwitchDefaults.colors(checkedTrackColor = Color(0xFF8A2BE2)),
+                            modifier = Modifier.scale(0.6f)
+                        )
+                    }
+                    
+                    Text(
+                        text = "Bahasa terdeteksi: ${viewModel.detectedLanguage.uppercase()}",
+                        color = Color.Gray,
+                        fontSize = 10.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // Processing State
             if (state == RecordingState.PROCESSING) {
-                CircularProgressIndicator(
-                    color = Color(0xFF8A2BE2),
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("AI sedang merapikan teks...", color = Color.White, fontSize = 12.sp)
+                if (viewModel.finalResultText.isEmpty()) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF8A2BE2),
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("AI sedang merapikan teks...", color = Color.White, fontSize = 12.sp)
+                } else {
+                    // Destination Selection UI
+                    Card(
+                        modifier = Modifier.fillMaxWidth(0.9f),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C26)),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Masukkan rekaman ke mana?", color = Color.White, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { viewModel.transcriptionDestination = "model"; viewModel.applyResultToDestination() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A2BE2))
+                            ) {
+                                Text("Deskripsi Produk")
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { viewModel.transcriptionDestination = "purpose"; viewModel.applyResultToDestination() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A2BE2))
+                            ) {
+                                Text("Deskripsi Tujuan")
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(onClick = { viewModel.reset(); onClose() }) {
+                                Text("Batal", color = Color.Gray)
+                            }
+                        }
+                    }
+                }
             }
 
             if (state == RecordingState.LOCKED) {

@@ -12,7 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class RecordingState {
-    IDLE, RECORDING, LOCKED, CANCELLED, SENT, PROCESSING
+    IDLE, RECORDING, LOCKED, CANCELLED, SENT, PROCESSING, NEED_VERIFICATION, VERIFIED
 }
 
 class MicViewModel(application: Application) : AndroidViewModel(application) {
@@ -22,6 +22,13 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
     var transcribedText by mutableStateOf("") // Text results from speech
     var detectedLanguage by mutableStateOf("id") // Default to Indonesian
     
+    var hasPermission by mutableStateOf(false)
+    var isVerified by mutableStateOf(false)
+    
+    // Result handling
+    var transcriptionDestination by mutableStateOf<String?>(null) // "model" or "purpose"
+    var finalResultText by mutableStateOf("")
+
     // Smart Workflow Preferences (Hybrid Design)
     var autoCorrectGrammar by mutableStateOf(true)
     var autoRewrite by mutableStateOf(false)
@@ -30,12 +37,30 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
     var targetLanguage by mutableStateOf("en")
 
     private val speechService = MicMLKIT(application).apply {
-        onPartialResult = { transcribedText = it }
+        onPartialResult = { 
+            transcribedText = it 
+            if (recordingState == RecordingState.NEED_VERIFICATION && it.contains("halo", ignoreCase = true)) {
+                handleVerificationSuccess()
+            }
+        }
         onResult = { 
             transcribedText = it 
-            identifyLanguage(it)
+            if (recordingState == RecordingState.NEED_VERIFICATION && it.contains("halo", ignoreCase = true)) {
+                handleVerificationSuccess()
+            } else if (recordingState != RecordingState.NEED_VERIFICATION) {
+                identifyLanguage(it)
+            }
         }
         onError = { /* Handle speech errors */ }
+    }
+
+    private fun handleVerificationSuccess() {
+        viewModelScope.launch {
+            isVerified = true
+            recordingState = RecordingState.VERIFIED
+            delay(1000)
+            startRecording() // Automatically start real recording after verification
+        }
     }
 
     private val langIdentifier = MLKITIdentifikasiBahasa()
@@ -44,6 +69,22 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
     private val translator = MLKITTerjemahan()
 
     private var timerJob: Job? = null
+
+    fun updatePermissionStatus(granted: Boolean) {
+        hasPermission = granted
+    }
+
+    fun startRecordingFlow() {
+        if (!hasPermission) return
+        
+        if (!isVerified) {
+            recordingState = RecordingState.NEED_VERIFICATION
+            transcribedText = ""
+            speechService.startListening()
+        } else {
+            startRecording()
+        }
+    }
 
     fun startRecording() {
         transcribedText = ""
@@ -113,10 +154,16 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
                 currentText = deferredTranslate.await()
             }
 
-            transcribedText = currentText
-            recordingState = RecordingState.IDLE
-            reset()
+            finalResultText = currentText
+            // Note: We don't reset immediately, we wait for destination selection in UI
         }
+    }
+
+    fun applyResultToDestination() {
+        // Logic to clear and reset will be handled by UI after reading finalResultText
+        reset()
+        finalResultText = ""
+        transcriptionDestination = null
     }
 
     private fun resetAfterDelay() {

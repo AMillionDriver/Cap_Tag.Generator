@@ -53,13 +53,22 @@ class MainScreenViewModel : ViewModel() {
         selectedImageUri = null
     }
 
-    fun handleMenuItemClick(label: String, closeDrawer: () -> Unit) {
+    fun handleMenuItemClick(label: String, closeDrawer: () -> Unit, context: Context) {
         viewModelScope.launch {
             closeDrawer()
             when (label) {
                 "Pengaturan Aplikasi" -> navigateTo(Screen.Settings)
                 "Pengaturan Akun" -> navigateTo(Screen.Account)
                 "Tentang LapakAI" -> MenuToggleLogic.handleTentangLapakAI(this@MainScreenViewModel)
+                "Umpan Balik" -> {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        data = android.net.Uri.parse("https://forms.gle/Tfh2MY1TUS7if8WC7")
+                    }
+                    context.startActivity(intent)
+                }
+                "Pusat Bantuan" -> {
+                    navigateTo(Screen.WebView("https://axolothdev.blogspot.com/2026/06/cara-penggunaan-lapakai.html"))
+                }
                 else -> _snackbarEvent.emit("(Dalam Proses Pengembangan)")
             }
         }

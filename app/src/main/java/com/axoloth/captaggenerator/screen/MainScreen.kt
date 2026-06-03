@@ -197,9 +197,9 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                         snackbarHostState = snackbarHostState,
                         onMenuClick = { scope.launch { drawerState.open() } },
                         onMenuItemClick = { label ->
-                            viewModel.handleMenuItemClick(label) {
+                            viewModel.handleMenuItemClick(label, {
                                 scope.launch { drawerState.close() }
-                            }
+                            }, context)
                         },
                         userDao = userRepository.userDao
                     )

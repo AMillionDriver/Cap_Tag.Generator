@@ -1,6 +1,7 @@
 package com.axoloth.captaggenerator.logic
 
 import android.net.Uri
+import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.getValue
@@ -88,6 +89,11 @@ class AccountViewModel(private val repository: UserRepository) : ViewModel() {
         viewModelScope.launch {
             repository.saveUser(currentUser.copy(profileImageUri = uri?.toString()))
         }
+    }
+
+    fun logout(context: Context) {
+        val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("is_logged_in", false).apply()
     }
 }
 

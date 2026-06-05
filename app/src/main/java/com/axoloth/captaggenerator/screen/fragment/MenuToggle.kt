@@ -163,10 +163,16 @@ fun SideMenuContent(
             
             Spacer(modifier = Modifier.height(16.dp))
 
+            val context = LocalContext.current
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .clickable { /* Handle Logout */ }
+                    .clickable { 
+                        accountViewModel.logout(context) 
+                        // Force restart activity to go back to LoginScreen
+                        (context as? android.app.Activity)?.finish()
+                        context.startActivity(android.content.Intent(context, com.axoloth.captaggenerator.MainActivity::class.java))
+                    }
                     .padding(vertical = 8.dp)
             ) {
                 Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = MenuIconPurple, modifier = Modifier.size(28.dp))

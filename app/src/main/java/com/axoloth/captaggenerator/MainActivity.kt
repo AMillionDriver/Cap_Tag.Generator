@@ -73,6 +73,15 @@ class MainActivity : FragmentActivity() {
                         factory = SettingScreenViewModelFactory(context)
                     )
                     
+                    val loginViewModel: com.axoloth.captaggenerator.logic.LoginViewModel = viewModel(
+                        factory = object : androidx.lifecycle.ViewModelProvider.Factory {
+                            override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                                return com.axoloth.captaggenerator.logic.LoginViewModel(context) as T
+                            }
+                        }
+                    )
+
+                    var isLoggedIn by remember { mutableStateOf(loginViewModel.isLoggedIn) }
                     var isAuthenticated by remember { mutableStateOf(!settingViewModel.isBiometricEnabled) }
                     var biometricStatus by remember { mutableStateOf(BiometricDialogStatus.IDLE) }
                     var biometricMessage by remember { mutableStateOf<String?>(null) }
@@ -80,7 +89,12 @@ class MainActivity : FragmentActivity() {
                     val activity = context as? FragmentActivity
                     val fingerprintService = remember(activity) { activity?.let { FingerPrint(it) } }
 
-                    if (isAuthenticated) {
+                    if (!isLoggedIn) {
+                        com.axoloth.captaggenerator.screen.LoginScreen(
+                            viewModel = loginViewModel,
+                            onLoginSuccess = { isLoggedIn = true }
+                        )
+                    } else if (isAuthenticated) {
                         MainScreen(viewModel = mainViewModel)
                     } else {
                         // Tampilkan Dialog Biometric saat baru buka app

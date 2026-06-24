@@ -40,9 +40,8 @@ class FingerPrintLayerTwo(private val activity: FragmentActivity) {
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle("Verifikasi Identitas")
-            .setSubtitle("Gunakan sidik jari untuk melanjutkan")
-            .setNegativeButtonText("Batal")
-            .setAllowedAuthenticators(androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG)
+            .setSubtitle("Gunakan biometrik atau PIN/pola/password perangkat")
+            .setAllowedAuthenticators(BiometricAuthConfig.allowedAuthenticators)
             .build()
 
         biometricPrompt.authenticate(promptInfo)

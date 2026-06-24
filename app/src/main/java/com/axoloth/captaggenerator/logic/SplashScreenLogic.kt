@@ -5,47 +5,61 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.axoloth.captaggenerator.service.security.AuthManager
+import kotlinx.coroutines.launch
 
 class LoginViewModel(context: Context) : ViewModel() {
-    private val sharedPrefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+    private val authManager = AuthManager(context.applicationContext)
 
     var email by mutableStateOf("")
     var password by mutableStateOf("")
     var isPasswordVisible by mutableStateOf(false)
     var isLoading by mutableStateOf(false)
     var errorMessage by mutableStateOf<String?>(null)
+    var infoMessage by mutableStateOf<String?>(null)
+        private set
 
-    var isLoggedIn by mutableStateOf(sharedPrefs.getBoolean("is_logged_in", false))
+    var isCredentialConfigured by mutableStateOf(authManager.hasCredentials())
+        private set
+
+    var isLoggedIn by mutableStateOf(authManager.isSessionValid())
         private set
 
     fun onLoginClick(onSuccess: () -> Unit) {
-        if (email.isBlank() || password.isBlank()) {
-            errorMessage = "Email dan password tidak boleh kosong"
-            return
-        }
-        
+        if (isLoading) return
+
         isLoading = true
         errorMessage = null
-        
-        // Simulasi Login (Nanti bisa dihubungkan ke Firebase Auth)
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            isLoading = false
-            updateLoginStatus(true)
-            onSuccess()
-        }, 1500)
-    }
+        infoMessage = null
 
-    fun onGuestLogin(onSuccess: () -> Unit) {
-        updateLoginStatus(true)
-        onSuccess()
+        viewModelScope.launch {
+            val result = authManager.authenticateOrCreate(email, password)
+            isLoading = false
+
+            if (!result.isSuccess) {
+                errorMessage = result.message ?: "Login gagal."
+                return@launch
+            }
+
+            isCredentialConfigured = true
+            infoMessage = result.message
+            isLoggedIn = true
+            password = ""
+            onSuccess()
+        }
     }
 
     fun logout() {
-        updateLoginStatus(false)
+        authManager.clearSession()
+        isLoggedIn = false
     }
 
-    private fun updateLoginStatus(status: Boolean) {
-        isLoggedIn = status
-        sharedPrefs.edit().putBoolean("is_logged_in", status).apply()
+    fun refreshSession() {
+        isCredentialConfigured = authManager.hasCredentials()
+        isLoggedIn = authManager.isSessionValid()
+        if (!isCredentialConfigured) {
+            infoMessage = "Buat akun lokal pertama untuk mengunci aplikasi ini."
+        }
     }
 }

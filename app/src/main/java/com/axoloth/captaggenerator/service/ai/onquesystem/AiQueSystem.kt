@@ -1,12 +1,14 @@
 package com.axoloth.captaggenerator.service.ai.onquesystem
 
+import com.axoloth.captaggenerator.service.ai.fetch.AiUnavailableException
 import com.axoloth.captaggenerator.service.ai.fetch.AiFetchingLogic
 import android.util.Log
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.generationConfig
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 
 sealed class GenerationStep {
@@ -18,9 +20,14 @@ sealed class GenerationStep {
         val productDescription: String,
         val tagsAndHashtags: String
     ) : GenerationStep()
+    data class Error(val message: String) : GenerationStep()
 }
 
 object AiQueSystem {
+    private const val AI_GENERATION_TIMEOUT_MS = 60_000L
+    private const val COPYWRITING_STEP_DELAY_MS = 1_500L
+    private const val CAPTION_STEP_DELAY_MS = 2_000L
+    private const val TAGS_STEP_DELAY_MS = 1_000L
 
     /**
      * Menjalankan antrean proses AI dengan strategi Single-Hit JSON.
@@ -35,58 +42,59 @@ object AiQueSystem {
         businessName: String = "",
         salesLink: String = ""
     ): Flow<GenerationStep> = flow {
-        
-        // 1. Tahap Inisialisasi & Request (Visual Delay 10 detik)
-        emit(GenerationStep.Copywriting)
-        
-        // Jalankan request AI di background sesegera mungkin
-        val aiResultDeferred = try {
-            fetchAiData(productName, productModel, productPurpose, userKeywords, tone, businessName, salesLink)
-        } catch (e: Exception) {
-            null
-        }
+        coroutineScope {
+            // 1. Tahap Inisialisasi & Request
+            emit(GenerationStep.Copywriting)
 
-        delay(3500) // Visual delay untuk tahap 1
+            // Jalankan request AI di background sesegera mungkin sambil progress UI tetap berjalan.
+            val aiResultDeferred = async {
+                runCatching {
+                    withTimeout(AI_GENERATION_TIMEOUT_MS) {
+                        fetchAiData(
+                            productName,
+                            productModel,
+                            productPurpose,
+                            userKeywords,
+                            tone,
+                            businessName,
+                            salesLink
+                        )
+                    }
+                }
+            }
 
-        // 2. Tahap Caption (Visual Delay 15 detik)
-        emit(GenerationStep.Caption)
-        delay(4500)
+            delay(COPYWRITING_STEP_DELAY_MS)
 
-        // 3. Tahap Tags & Hashtags (Visual Delay 10 detik)
-        emit(GenerationStep.Tags)
-        delay(2000)
+            // 2. Tahap Caption
+            emit(GenerationStep.Caption)
+            delay(CAPTION_STEP_DELAY_MS)
 
-        // 4. Selesai - Gabungkan hasil asli dari AI (atau fallback jika gagal)
-        if (aiResultDeferred != null) {
-            emit(GenerationStep.Completed(
-                aiResultDeferred.copywriting,
-                aiResultDeferred.description,
-                aiResultDeferred.tags
-            ))
-        } else {
-            // Fallback jika AI gagal
-            emit(GenerationStep.Completed(
-                "Gagal mengambil data dari AI. Silakan coba lagi.",
-                "Detail produk tidak tersedia.",
-                "#Error #Retry"
-            ))
+            // 3. Tahap Tags & Hashtags
+            emit(GenerationStep.Tags)
+            delay(TAGS_STEP_DELAY_MS)
+
+            // 4. Selesai - Gabungkan hasil asli dari AI, atau tampilkan error jika semua provider gagal.
+            val aiResult = aiResultDeferred.await()
+            val aiResponse = aiResult.getOrNull()
+            if (aiResponse != null) {
+                emit(
+                    GenerationStep.Completed(
+                        aiResponse.copywriting,
+                        aiResponse.description,
+                        aiResponse.tags
+                    )
+                )
+            } else {
+                val message = (aiResult.exceptionOrNull() as? AiUnavailableException)?.message
+                    ?: AiFetchingLogic.USER_FACING_UNAVAILABLE_MESSAGE
+                emit(GenerationStep.Error(message))
+            }
         }
     }
 
     private suspend fun fetchAiData(
         name: String, model: String, purpose: String, keywords: List<String>, tone: String, businessName: String, salesLink: String
-    ): AiResponse? {
-        val encryptedKey = AiFetchingLogic.fetchAndSecureGeminiKey() ?: return null
-        val apiKey = AiFetchingLogic.getReadyApiKey(encryptedKey)
-        
-        val generativeModel = GenerativeModel(
-            modelName = "gemini-2.5-flash-lite",
-            apiKey = apiKey,
-            generationConfig = generationConfig {
-                responseMimeType = "application/json"
-            }
-        )
-
+    ): AiResponse {
         val prompt = """
             Kamu adalah ahli copywriting marketing profesional. 
             Buatlah konten promosi untuk produk berikut:
@@ -108,26 +116,32 @@ object AiQueSystem {
             }
         """.trimIndent()
 
-        return try {
-            val response = generativeModel.generateContent(prompt)
-            val jsonText = response.text ?: return null
-            
-            Log.d("AiQueSystem", "Raw AI Response: $jsonText")
-            
+        return AiFetchingLogic.generateWithFallback(
+            prompt = prompt,
+            expectJson = true,
+            transform = ::parseAiResponse
+        ).also { result ->
+            Log.d("AiQueSystem", "AI response accepted from ${result.providerName}")
+        }.value
+    }
+
+    private fun parseAiResponse(rawText: String): AiResponse? {
+        return runCatching {
+            Log.d("AiQueSystem", "Raw AI Response: $rawText")
+
             // Bersihkan teks jika AI menambahkan markdown (```json ... ```)
-            val cleanedJson = jsonText.replace("```json", "").replace("```", "").trim()
-            
+            val cleanedJson = rawText
+                .replace("```json", "", ignoreCase = true)
+                .replace("```", "")
+                .trim()
+
             val jsonObject = JSONObject(cleanedJson)
             AiResponse(
                 copywriting = jsonObject.getString("copywriting"),
                 description = jsonObject.getString("description"),
                 tags = jsonObject.getString("tags")
             )
-        } catch (e: Exception) {
-            Log.e("AiQueSystem", "Error in fetchAiData: ${e.message}")
-            e.printStackTrace()
-            null
-        }
+        }.getOrNull()
     }
 
     private data class AiResponse(

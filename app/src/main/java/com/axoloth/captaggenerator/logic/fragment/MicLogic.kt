@@ -1,18 +1,22 @@
 package com.axoloth.captaggenerator.logic.fragment
 
 import android.app.Application
+import android.content.pm.PackageManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.axoloth.captaggenerator.service.*
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class RecordingState {
-    IDLE, RECORDING, LOCKED, CANCELLED, SENT, PROCESSING, NEED_VERIFICATION, VERIFIED
+    IDLE, RECORDING, LOCKED, CANCELLED, SENT, PROCESSING
 }
 
 class MicViewModel(application: Application) : AndroidViewModel(application) {
@@ -21,10 +25,19 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
     var isLocked by mutableStateOf(false)
     var transcribedText by mutableStateOf("") // Text results from speech
     var detectedLanguage by mutableStateOf("id") // Default to Indonesian
+    var speechErrorMessage by mutableStateOf<String?>(null)
+        private set
+    var micLevel by mutableStateOf(0f)
+        private set
+    var isListening by mutableStateOf(false)
+        private set
     
-    var hasPermission by mutableStateOf(false)
-    var isVerified by mutableStateOf(false)
-    
+    var hasPermission by mutableStateOf(
+        ContextCompat.checkSelfPermission(
+            application,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    )
     // Result handling
     var transcriptionDestination by mutableStateOf<String?>(null) // "model" or "purpose"
     var finalResultText by mutableStateOf("")
@@ -38,28 +51,32 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val speechService = MicMLKIT(application).apply {
         onPartialResult = { 
-            transcribedText = it 
-            if (recordingState == RecordingState.NEED_VERIFICATION && it.contains("halo", ignoreCase = true)) {
-                handleVerificationSuccess()
-            }
+            speechErrorMessage = null
+            transcribedText = it
         }
         onResult = { 
-            transcribedText = it 
-            if (recordingState == RecordingState.NEED_VERIFICATION && it.contains("halo", ignoreCase = true)) {
-                handleVerificationSuccess()
-            } else if (recordingState != RecordingState.NEED_VERIFICATION) {
-                identifyLanguage(it)
+            speechErrorMessage = null
+            transcribedText = it
+            identifyLanguage(it)
+        }
+        onError = { message ->
+            speechErrorMessage = when (message) {
+                "No speech detected", "Tidak ada suara terdeteksi" ->
+                    "Belum ada suara yang tertangkap. Coba dekatkan mic dan ulangi."
+                "Permission missing" ->
+                    "Izin mikrofon belum aktif."
+                else -> message
             }
         }
-        onError = { /* Handle speech errors */ }
-    }
-
-    private fun handleVerificationSuccess() {
-        viewModelScope.launch {
-            isVerified = true
-            recordingState = RecordingState.VERIFIED
-            delay(1000)
-            startRecording() // Automatically start real recording after verification
+        onRmsChanged = { rms ->
+            micLevel = rms.coerceIn(0f, 12f) / 12f
+        }
+        onListeningStarted = {
+            isListening = true
+            speechErrorMessage = null
+        }
+        onListeningStopped = {
+            isListening = false
         }
     }
 
@@ -72,22 +89,22 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updatePermissionStatus(granted: Boolean) {
         hasPermission = granted
+        if (!granted) {
+            speechErrorMessage = "Izin mikrofon ditolak."
+        }
     }
 
     fun startRecordingFlow() {
         if (!hasPermission) return
-        
-        if (!isVerified) {
-            recordingState = RecordingState.NEED_VERIFICATION
-            transcribedText = ""
-            speechService.startListening()
-        } else {
-            startRecording()
-        }
+        startRecording()
     }
 
     fun startRecording() {
         transcribedText = ""
+        finalResultText = ""
+        transcriptionDestination = null
+        speechErrorMessage = null
+        micLevel = 0f
         recordingState = RecordingState.RECORDING
         speechService.startListening()
         startTimer()
@@ -103,6 +120,13 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
         speechService.stopListening()
         
         if (isSent) {
+            if (transcribedText.isBlank()) {
+                speechErrorMessage = "Belum ada transkrip. Coba rekam suara lagi."
+                recordingState = RecordingState.RECORDING
+                startTimer()
+                speechService.startListening()
+                return
+            }
             recordingState = RecordingState.SENT
             processWorkflow()
         } else {
@@ -113,7 +137,7 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelRecording() {
         stopTimer()
-        speechService.stopListening()
+        speechService.cancelListening()
         recordingState = RecordingState.CANCELLED
         resetAfterDelay()
     }
@@ -130,6 +154,11 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
         recordingState = RecordingState.PROCESSING
         viewModelScope.launch {
             var currentText = transcribedText
+            if (currentText.isBlank()) {
+                speechErrorMessage = "Belum ada transkrip. Coba rekam suara lagi."
+                resetAfterDelay()
+                return@launch
+            }
 
             // 1. Identifikasi Bahasa (Background sudah jalan, tapi pastikan sekali lagi)
             identifyLanguage(currentText)
@@ -137,21 +166,29 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
 
             // 2. Pemeriksaan Tata Bahasa (Gemini)
             if (autoCorrectGrammar) {
-                currentText = grammarChecker.checkGrammar(currentText, detectedLanguage)
+                currentText = withTimeoutOrNull(TEXT_WORKFLOW_AI_TIMEOUT_MS) {
+                    grammarChecker.checkGrammar(currentText, detectedLanguage)
+                } ?: currentText
             }
 
             // 3. Penulisan Ulang (Gemini)
             if (autoRewrite) {
-                currentText = rewriter.rewrite(currentText, rewriteStyle)
+                currentText = withTimeoutOrNull(TEXT_WORKFLOW_AI_TIMEOUT_MS) {
+                    rewriter.rewrite(currentText, rewriteStyle)
+                } ?: currentText
             }
 
             // 4. Terjemahan (ML Kit On-Device)
             if (autoTranslate && detectedLanguage != targetLanguage) {
                 val deferredTranslate = CompletableDeferred<String>()
                 translator.translate(currentText, detectedLanguage, targetLanguage) { translated ->
-                    deferredTranslate.complete(translated)
+                    if (!deferredTranslate.isCompleted) {
+                        deferredTranslate.complete(translated)
+                    }
                 }
-                currentText = deferredTranslate.await()
+                currentText = withTimeoutOrNull(TRANSLATION_TIMEOUT_MS) {
+                    deferredTranslate.await()
+                } ?: currentText
             }
 
             finalResultText = currentText
@@ -159,8 +196,13 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun selectTranscriptionDestination(destination: String) {
+        if (finalResultText.isBlank()) return
+        transcriptionDestination = destination
+    }
+
     fun applyResultToDestination() {
-        // Logic to clear and reset will be handled by UI after reading finalResultText
+        // Dipanggil oleh parent UI setelah finalResultText berhasil dipindahkan ke field tujuan.
         reset()
         finalResultText = ""
         transcriptionDestination = null
@@ -194,28 +236,19 @@ class MicViewModel(application: Application) : AndroidViewModel(application) {
         recordingState = RecordingState.IDLE
         recordingDuration = 0L
         isLocked = false
+        isListening = false
+        micLevel = 0f
+        speechErrorMessage = null
     }
 
     override fun onCleared() {
         super.onCleared()
         speechService.destroy()
-    }
-}
-
-// Helper untuk menunggu callback translator
-class CompletableDeferred<T> {
-    private var result: T? = null
-    private var isCompleted = false
-
-    fun complete(value: T) {
-        result = value
-        isCompleted = true
+        langIdentifier.close()
     }
 
-    suspend fun await(): T {
-        while (!isCompleted) {
-            delay(50)
-        }
-        return result!!
+    private companion object {
+        const val TEXT_WORKFLOW_AI_TIMEOUT_MS = 45_000L
+        const val TRANSLATION_TIMEOUT_MS = 10_000L
     }
 }

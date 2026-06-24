@@ -78,14 +78,22 @@ class MainScreenViewModel : ViewModel() {
         val uri = selectedImageUri
         if (uri != null) {
             viewModelScope.launch {
-                isProcessingOcr = true
-                val extractedText = OcrService.extractTextFromImage(context, uri)
-                isProcessingOcr = false
-                navigateTo(Screen.Generate(extractedText))
+                try {
+                    isProcessingOcr = true
+                    val extractedText = OcrService.extractTextFromImage(context.applicationContext, uri)
+                    navigateTo(Screen.Generate(extractedText))
+                } finally {
+                    isProcessingOcr = false
+                    OcrService.close()
+                }
             }
         } else {
             navigateTo(Screen.Generate())
         }
     }
-}
 
+    override fun onCleared() {
+        super.onCleared()
+        OcrService.close()
+    }
+}

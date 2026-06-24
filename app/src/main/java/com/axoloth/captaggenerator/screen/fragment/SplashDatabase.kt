@@ -46,3 +46,44 @@ fun SplashDatabaseScreen() {
         }
     }
 }
+
+@Composable
+fun DatabaseErrorScreen(
+    message: String,
+    onRetry: () -> Unit,
+    onExit: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0D0D17)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text(
+                text = "Database Tidak Dapat Dibuka",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = message,
+                color = Color.Gray,
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(onClick = onRetry) {
+                Text("Coba Lagi")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(onClick = onExit) {
+                Text("Keluar", color = Color.White)
+            }
+        }
+    }
+}

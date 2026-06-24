@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import com.axoloth.captaggenerator.logic.MainScreenViewModel
 import com.axoloth.captaggenerator.logic.Screen
 import com.axoloth.captaggenerator.logic.SettingScreenViewModel
+import com.axoloth.captaggenerator.room.UserDao
 import com.axoloth.captaggenerator.screen.fragment.BiometricDialog
 import com.axoloth.captaggenerator.screen.fragment.BiometricDialogStatus
 import com.axoloth.captaggenerator.screen.fragment.DatabaseTrendLogPopup
@@ -60,7 +61,8 @@ class SettingScreenViewModelFactory(private val context: android.content.Context
 fun SettingScreen(
     onBackClick: () -> Unit = {},
     mainViewModel: MainScreenViewModel = viewModel(),
-    settingViewModel: SettingScreenViewModel = viewModel(factory = SettingScreenViewModelFactory(LocalContext.current))
+    settingViewModel: SettingScreenViewModel = viewModel(factory = SettingScreenViewModelFactory(LocalContext.current)),
+    userDao: UserDao? = null
 ) {
     CapTagGeneratorTheme(darkTheme = true) {
         Scaffold(
@@ -289,6 +291,7 @@ fun SettingScreen(
                     var showBiometricDialog by remember { mutableStateOf(false) }
                     var biometricStatus by remember { mutableStateOf(BiometricDialogStatus.IDLE) }
                     var biometricMessage by remember { mutableStateOf<String?>(null) }
+                    var biometricPromptAttempt by remember { mutableStateOf(0) }
                     
                     val context = LocalContext.current
                     val activity = context as? FragmentActivity
@@ -296,8 +299,18 @@ fun SettingScreen(
                     val scope = rememberCoroutineScope()
 
                     if (showBiometricDialog) {
-                        LaunchedEffect(Unit) {
-                            fingerprintService?.startAuthentication { success, message ->
+                        LaunchedEffect(biometricPromptAttempt) {
+                            biometricStatus = BiometricDialogStatus.IDLE
+                            biometricMessage = null
+
+                            val service = fingerprintService
+                            if (service == null) {
+                                biometricStatus = BiometricDialogStatus.ERROR
+                                biometricMessage = "Autentikasi perangkat tidak siap."
+                                return@LaunchedEffect
+                            }
+
+                            service.startAuthentication { success, message ->
                                 scope.launch {
                                     if (success) {
                                         biometricStatus = BiometricDialogStatus.SUCCESS
@@ -323,6 +336,7 @@ fun SettingScreen(
                                 biometricStatus = BiometricDialogStatus.IDLE
                                 biometricMessage = null
                             },
+                            onRetry = { biometricPromptAttempt++ },
                             status = biometricStatus,
                             message = biometricMessage
                         )
@@ -339,6 +353,7 @@ fun SettingScreen(
                                     if (it) {
                                         showBiometricDialog = true
                                         biometricStatus = BiometricDialogStatus.IDLE
+                                        biometricMessage = null
                                     } else {
                                         settingViewModel.updateBiometricStatus(false)
                                     }
@@ -395,7 +410,10 @@ fun SettingScreen(
                     var showStoragePopup by remember { mutableStateOf(false) }
 
                     if (showStoragePopup) {
-                        StoragePopUp(onDismiss = { showStoragePopup = false })
+                        StoragePopUp(
+                            onDismiss = { showStoragePopup = false },
+                            userDao = userDao
+                        )
                     }
 
                     SettingsItem(

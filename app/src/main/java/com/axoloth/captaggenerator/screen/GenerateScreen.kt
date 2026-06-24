@@ -47,6 +47,7 @@ import com.axoloth.captaggenerator.logic.SettingScreenViewModel
 import com.axoloth.captaggenerator.logic.fragment.MicViewModel
 import com.axoloth.captaggenerator.logic.fragment.RecordingState
 import com.axoloth.captaggenerator.screen.fragment.MicPopUp
+import com.axoloth.captaggenerator.service.storage.PersistableUriPermission
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import java.text.SimpleDateFormat
 import java.util.*
@@ -172,9 +173,11 @@ fun GenerateScreenContent(
     onStartProcessing: () -> Unit,
     micViewModel: MicViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
+        uri?.let { PersistableUriPermission.takeRead(context, it) }
         onImageSelected(uri)
     }
 
@@ -182,6 +185,9 @@ fun GenerateScreenContent(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         micViewModel.updatePermissionStatus(isGranted)
+        if (isGranted) {
+            micViewModel.startRecordingFlow()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -245,7 +251,11 @@ fun GenerateScreenContent(
                             )
                             .clip(RoundedCornerShape(24.dp))
                             .background(GenerateCardBg)
-                            .clickable { if (selectedImageUri == null) galleryLauncher.launch("image/*") },
+                            .clickable {
+                                if (selectedImageUri == null) {
+                                    galleryLauncher.launch(arrayOf("image/*"))
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (selectedImageUri != null) {
@@ -497,7 +507,7 @@ fun GenerateScreenContent(
                         onClick = { 
                             if (!micViewModel.hasPermission) {
                                 permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                            } else {
+                            } else if (micViewModel.recordingState == RecordingState.IDLE) {
                                 micViewModel.startRecordingFlow()
                             }
                         },

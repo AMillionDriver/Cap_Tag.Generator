@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,6 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.axoloth.captaggenerator.logic.TwoFactorViewModelFactory
 import com.axoloth.captaggenerator.logic.TwoFactorViewModel
 import com.axoloth.captaggenerator.logic.VerificationStatus
 import kotlinx.coroutines.launch
@@ -38,7 +40,9 @@ import kotlinx.coroutines.launch
 fun TwoFactorScreen(
     onBackClick: () -> Unit = {},
     onSaveSuccess: () -> Unit = {},
-    viewModel: TwoFactorViewModel = viewModel()
+    viewModel: TwoFactorViewModel = viewModel(
+        factory = TwoFactorViewModelFactory(LocalContext.current)
+    )
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -52,9 +56,11 @@ fun TwoFactorScreen(
         status2 = viewModel.status2,
         code3 = viewModel.code3,
         status3 = viewModel.status3,
-        onCode1Change = { viewModel.code1 = it },
-        onCode2Change = { viewModel.code2 = it },
-        onCode3Change = { viewModel.code3 = it },
+        isSaving = viewModel.isSaving,
+        saveErrorMessage = viewModel.saveErrorMessage,
+        onCode1Change = { viewModel.updateCode1(it) },
+        onCode2Change = { viewModel.updateCode2(it) },
+        onCode3Change = { viewModel.updateCode3(it) },
         onVerify1 = { viewModel.verifyCode1(it) { /* handled in focus */ } },
         onVerify2 = { viewModel.verifyCode2(it) { /* handled in focus */ } },
         onVerify3 = { viewModel.verifyCode3(it) },
@@ -62,7 +68,7 @@ fun TwoFactorScreen(
         onReset2 = { viewModel.resetCode2() },
         onReset3 = { viewModel.resetCode3() },
         onBackClick = onBackClick,
-        onSaveSuccess = onSaveSuccess,
+        onSaveSuccess = { viewModel.saveConfiguration(onSaveSuccess) },
         canSave = viewModel.canSave(),
         snackbarHostState = snackbarHostState,
         onVerify1WithNext = { input, onNext -> viewModel.verifyCode1(input, onNext) },
@@ -82,6 +88,8 @@ fun TwoFactorScreenContent(
     status2: VerificationStatus,
     code3: String,
     status3: VerificationStatus,
+    isSaving: Boolean,
+    saveErrorMessage: String?,
     onCode1Change: (String) -> Unit,
     onCode2Change: (String) -> Unit,
     onCode3Change: (String) -> Unit,
@@ -239,12 +247,23 @@ fun TwoFactorScreenContent(
             
             Button(
                 onClick = onSaveSuccess,
-                enabled = canSave,
+                enabled = canSave && !isSaving,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8A2BE2))
             ) {
-                Text("SAVE CONFIGURATION", fontWeight = FontWeight.Bold)
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("SAVE CONFIGURATION", fontWeight = FontWeight.Bold)
+                }
+            }
+            saveErrorMessage?.let {
+                Text(it, color = Color.Red, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
             }
             Text("Ensure your settings are saved securely.", color = Color.Gray, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
         }
@@ -279,7 +298,7 @@ fun CodeInputField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            enabled = status == VerificationStatus.IDLE,
+            enabled = status != VerificationStatus.SUCCESS,
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(Unit) {
@@ -317,6 +336,8 @@ fun TwoFactorPreview() {
         status2 = VerificationStatus.IDLE,
         code3 = "",
         status3 = VerificationStatus.IDLE,
+        isSaving = false,
+        saveErrorMessage = null,
         onCode1Change = {},
         onCode2Change = {},
         onCode3Change = {},

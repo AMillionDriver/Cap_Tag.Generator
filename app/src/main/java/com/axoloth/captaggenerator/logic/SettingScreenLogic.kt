@@ -5,11 +5,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.axoloth.captaggenerator.service.security.TwoFactorStore
 
 class SettingScreenViewModel(context: Context) : ViewModel() {
-    private val sharedPrefs = context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val sharedPrefs = appContext.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
 
-    var isTwoFactorEnabled by mutableStateOf(sharedPrefs.getBoolean("2fa_enabled", false))
+    var isTwoFactorEnabled by mutableStateOf(TwoFactorStore.isEnabled(appContext))
         private set
 
     var isBiometricEnabled by mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", false))
@@ -52,8 +54,12 @@ class SettingScreenViewModel(context: Context) : ViewModel() {
     }
 
     fun updateTwoFactorStatus(enabled: Boolean) {
-        isTwoFactorEnabled = enabled
-        sharedPrefs.edit().putBoolean("2fa_enabled", enabled).apply()
+        isTwoFactorEnabled = enabled && TwoFactorStore.hasSecret(appContext)
+        sharedPrefs.edit().putBoolean("2fa_enabled", isTwoFactorEnabled).apply()
+    }
+
+    fun refreshTwoFactorStatus() {
+        isTwoFactorEnabled = TwoFactorStore.isEnabled(appContext)
     }
 
     fun updateBiometricStatus(enabled: Boolean) {
@@ -84,12 +90,8 @@ class SettingScreenViewModel(context: Context) : ViewModel() {
     }
 
     private fun clearTwoFactorConfig() {
+        TwoFactorStore.clear(appContext)
         isTwoFactorEnabled = false
-        sharedPrefs.edit().putBoolean("2fa_enabled", false).apply()
-        // Placeholder untuk menghapus data dari penyimpanan permanen di masa depan:
-        // preferences.edit().remove("2fa_secret").apply()
-        // database.twoFactorDao().deleteAll()
-        println("2FA Configuration Wiped: Clean start enabled.")
     }
 }
 

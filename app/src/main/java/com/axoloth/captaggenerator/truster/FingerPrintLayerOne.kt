@@ -2,8 +2,6 @@ package com.axoloth.captaggenerator.truster
 
 import android.content.Context
 import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
-import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
 /**
  * 🧱 Layer 1 — Device Capability & Security Check
@@ -22,10 +20,9 @@ class FingerPrintLayerOne(private val context: Context) {
     fun checkDeviceCapability(): LayerOneStatus {
         val biometricManager = BiometricManager.from(context)
 
-        // 1. Cek Hardware & Pendaftaran (BIOMETRIC_STRONG)
-        // BIOMETRIC_STRONG memastikan kita menggunakan sensor yang aman (Class 3)
-        // DEVICE_CREDENTIAL memungkinkan fallback ke PIN/Pattern jika sensor tidak ada
-        return when (biometricManager.canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL)) {
+        // BIOMETRIC_STRONG menjaga jalur biometric tetap memakai sensor Class 3.
+        // DEVICE_CREDENTIAL memberi fallback ke PIN/Pola/Password perangkat jika biometric tidak tersedia.
+        return when (biometricManager.canAuthenticate(BiometricAuthConfig.allowedAuthenticators)) {
             BiometricManager.BIOMETRIC_SUCCESS -> {
                 // 2. Cek Session Login Lokal (Simulasi)
                 if (isLocalSessionValid()) {
@@ -35,13 +32,13 @@ class FingerPrintLayerOne(private val context: Context) {
                 }
             }
             BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> {
-                LayerOneStatus.Error("Perangkat tidak mendukung hardware sidik jari.", false)
+                LayerOneStatus.Error("Perangkat tidak mendukung biometrik dan kunci layar perangkat belum tersedia.", true)
             }
             BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> {
-                LayerOneStatus.Error("Sensor sidik jari sedang tidak tersedia.", true)
+                LayerOneStatus.Error("Autentikasi perangkat sedang tidak tersedia. Coba lagi beberapa saat.", true)
             }
             BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                LayerOneStatus.Error("Sidik jari belum didaftarkan di pengaturan perangkat.", true)
+                LayerOneStatus.Error("Aktifkan sidik jari/wajah atau PIN, pola, dan password perangkat terlebih dahulu.", true)
             }
             BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> {
                 LayerOneStatus.Error("Update keamanan diperlukan untuk menggunakan fitur ini.", true)

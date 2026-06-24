@@ -45,7 +45,6 @@ import com.axoloth.captaggenerator.logic.HistoryViewModel
 import com.axoloth.captaggenerator.logic.HistoryViewModelFactory
 import com.axoloth.captaggenerator.logic.UserRepository
 import com.axoloth.captaggenerator.room.AppDatabase
-import com.axoloth.captaggenerator.screen.fragment.SplashDatabaseScreen
 import com.axoloth.captaggenerator.screen.fragment.TwoFactorScreen
 import com.axoloth.captaggenerator.screen.fragment.LapakWebView
 import com.axoloth.captaggenerator.screen.fragment.GenerateSplash
@@ -54,6 +53,7 @@ import com.axoloth.captaggenerator.screen.fragment.AccountScreen
 import com.axoloth.captaggenerator.screen.fragment.SideMenuContent
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 import kotlinx.coroutines.launch
+import com.axoloth.captaggenerator.service.storage.PersistableUriPermission
 
 val ColorIconCyan = Color(0xCCA6A2A6)
 val ColorIconDf = Color(0xCC6400FF)
@@ -63,30 +63,30 @@ val ColorCyanSecondary = Color(0xFF8800FF)
 val ColorTextSecondary = Color.Gray
 
 @Composable
-fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
+fun MainScreen(
+    database: AppDatabase,
+    viewModel: MainScreenViewModel = viewModel()
+) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     var lastBackPressTime by remember { mutableLongStateOf(0L) }
     
-    // Database and Repository initialization
-    // Note: We use the already warmed up instance from MainActivity
-    val database = remember { AppDatabase.getSafeInstanceBlocking(context) }
-    val userRepository = remember(database) { database?.let { UserRepository(it.userDao()) } }
+    val userRepository = remember(database) { UserRepository(database.userDao()) }
 
     // Inisialisasi SettingViewModel di level MainScreen agar state-nya tersinkronisasi
     val settingViewModel: SettingScreenViewModel = viewModel(
         factory = SettingScreenViewModelFactory(LocalContext.current)
     )
     
-    val accountViewModel: AccountViewModel? = userRepository?.let { repo ->
-        viewModel(factory = AccountViewModelFactory(repo))
-    }
+    val accountViewModel: AccountViewModel = viewModel(
+        factory = AccountViewModelFactory(userRepository)
+    )
 
-    val generateResultViewModel: GenerateResultViewModel? = database?.let { db ->
-        viewModel(factory = GenerateResultViewModelFactory(db.userDao()))
-    }
+    val generateResultViewModel: GenerateResultViewModel = viewModel(
+        factory = GenerateResultViewModelFactory(database.userDao())
+    )
     
     // Stabilize UI states using derivedStateOf to prevent unnecessary recompositions
     val currentScreen by remember { derivedStateOf { viewModel.currentScreen } }
@@ -94,12 +94,18 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
     val isProcessingOcr by remember { derivedStateOf { viewModel.isProcessingOcr } }
 
     CapTagGeneratorTheme(darkTheme = true) {
-        if (database == null || userRepository == null || accountViewModel == null || generateResultViewModel == null) {
-            SplashDatabaseScreen()
-        } else {
+        Box(modifier = Modifier.fillMaxSize()) {
             when (currentScreen) {
                 is Screen.GenerateProcessing -> {
                     GenerateSplash(currentStep = generateResultViewModel.currentStep)
+                    val errorMessage = generateResultViewModel.generationErrorMessage
+                    LaunchedEffect(errorMessage) {
+                        if (errorMessage != null) {
+                            snackbarHostState.showSnackbar(errorMessage)
+                            generateResultViewModel.consumeGenerationError()
+                            viewModel.navigateTo(Screen.Main)
+                        }
+                    }
                     if (generateResultViewModel.isFinished) {
                         viewModel.navigateTo(Screen.GenerateResult())
                     }
@@ -135,7 +141,8 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     SettingScreen(
                         onBackClick = { viewModel.navigateTo(Screen.Main) },
                         mainViewModel = viewModel,
-                        settingViewModel = settingViewModel
+                        settingViewModel = settingViewModel,
+                        userDao = database.userDao()
                     )
                 }
                 is Screen.TwoFactorSetup -> {
@@ -143,7 +150,7 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     TwoFactorScreen(
                         onBackClick = { viewModel.navigateTo(Screen.Settings) },
                         onSaveSuccess = { 
-                            settingViewModel.updateTwoFactorStatus(true)
+                            settingViewModel.refreshTwoFactorStatus()
                             viewModel.navigateTo(Screen.Settings) 
                         }
                     )
@@ -154,7 +161,9 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     GenerateScreen(
                         selectedImageUri = selectedImageUri,
                         onBackClick = { viewModel.navigateTo(Screen.Main) },
-                        ocrText = ocrText
+                        ocrText = ocrText,
+                        mainViewModel = viewModel,
+                        resultViewModel = generateResultViewModel
                     )
                 }
                 is Screen.History -> {
@@ -205,6 +214,14 @@ fun MainScreen(viewModel: MainScreenViewModel = viewModel()) {
                     )
                 }
             }
+            if (currentScreen is Screen.GenerateProcessing) {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp)
+                )
+            }
         }
     }
 }
@@ -223,8 +240,9 @@ fun MainDashboard(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
+        uri?.let { PersistableUriPermission.takeRead(context, it) }
         viewModel.onImageSelected(uri)
     }
 
@@ -264,7 +282,7 @@ fun MainDashboard(
                         if (isImageSelected) {
                             viewModel.startGenerating(context)
                         } else {
-                            galleryLauncher.launch("image/*")
+                            galleryLauncher.launch(arrayOf("image/*"))
                         }
                     },
                     onHistoryClick = { viewModel.navigateTo(Screen.History) }
@@ -283,7 +301,7 @@ fun MainDashboard(
                 item { 
                     AnalysisSection(
                         selectedImageUri = viewModel.selectedImageUri,
-                        onUploadClick = { galleryLauncher.launch("image/*") },
+                        onUploadClick = { galleryLauncher.launch(arrayOf("image/*")) },
                         onClearClick = { viewModel.clearSelectedImage() }
                     ) 
                 }
@@ -657,6 +675,13 @@ fun CustomBottomNav(
 @Composable
 fun MainScreenPreview() {
     CapTagGeneratorTheme(darkTheme = true) {
-        MainScreen()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Main screen requires a database", color = Color.White)
+        }
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewModelScope
+import com.axoloth.captaggenerator.service.security.AuthManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -92,8 +93,7 @@ class AccountViewModel(private val repository: UserRepository) : ViewModel() {
     }
 
     fun logout(context: Context) {
-        val prefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("is_logged_in", false).apply()
+        AuthManager(context.applicationContext).clearSession()
     }
 }
 

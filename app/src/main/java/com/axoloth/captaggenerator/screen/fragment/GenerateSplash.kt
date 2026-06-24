@@ -65,6 +65,7 @@ fun GenerateSplash(currentStep: GenerationStep) {
                     is GenerationStep.Copywriting -> "Menganalisis Detail Produk..."
                     is GenerationStep.Caption -> "Menyusun Caption Menarik (Estimasi 1 Menit)..."
                     is GenerationStep.Tags -> "Mengoptimasi Tag & Hashtag..."
+                    is GenerationStep.Error -> "AI sedang padat..."
                     else -> "Menyiapkan Hasil..."
                 },
                 color = Color.White,

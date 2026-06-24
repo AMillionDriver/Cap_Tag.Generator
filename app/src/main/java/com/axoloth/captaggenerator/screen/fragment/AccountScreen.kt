@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.axoloth.captaggenerator.logic.AccountHistoryItem
 import com.axoloth.captaggenerator.logic.AccountViewModel
+import com.axoloth.captaggenerator.service.storage.PersistableUriPermission
 import com.axoloth.captaggenerator.ui.theme.CapTagGeneratorTheme
 
 @Composable
@@ -36,10 +38,12 @@ fun AccountScreen(
     viewModel: AccountViewModel = viewModel(),
 ) {
     var showEditPopup by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     
     val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
+        uri?.let { PersistableUriPermission.takeRead(context, it) }
         viewModel.updateProfileImage(uri)
     }
 
@@ -114,7 +118,7 @@ fun AccountScreen(
                         .border(4.dp, Color(0xFF0D0D17), CircleShape)
                         .clip(CircleShape)
                         .background(Color.DarkGray)
-                        .clickable { photoPickerLauncher.launch("image/*") },
+                        .clickable { photoPickerLauncher.launch(arrayOf("image/*")) },
                     contentAlignment = Alignment.Center
                 ) {
                     if (viewModel.profileImageUri != null) {

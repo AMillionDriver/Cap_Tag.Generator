@@ -27,6 +27,7 @@ enum class BiometricDialogStatus { IDLE, SUCCESS, ERROR }
 fun BiometricDialog(
     onDismiss: () -> Unit,
     onCancel: () -> Unit,
+    onRetry: (() -> Unit)? = null,
     status: BiometricDialogStatus = BiometricDialogStatus.IDLE,
     message: String? = null
 ) {
@@ -37,9 +38,9 @@ fun BiometricDialog(
     }
 
     val instructionText = when (status) {
-        BiometricDialogStatus.IDLE -> "Sentuh sensor sidik jari untuk mengonfirmasi aktivasi"
+        BiometricDialogStatus.IDLE -> "Gunakan biometrik atau PIN/pola/password perangkat"
         BiometricDialogStatus.SUCCESS -> "Berhasil diverifikasi!"
-        BiometricDialogStatus.ERROR -> message ?: "Gagal memverifikasi sidik jari"
+        BiometricDialogStatus.ERROR -> message ?: "Gagal memverifikasi identitas"
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -58,7 +59,7 @@ fun BiometricDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Verifikasi Sidik Jari",
+                    text = "Verifikasi Identitas",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -97,7 +98,7 @@ fun BiometricDialog(
                 Spacer(modifier = Modifier.height(32.dp))
                 
                 Text(
-                    text = if (status == BiometricDialogStatus.SUCCESS) "Verified" else "Pindai Sidik Jari Anda",
+                    text = if (status == BiometricDialogStatus.SUCCESS) "Verified" else "Autentikasi Perangkat",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
@@ -117,12 +118,24 @@ fun BiometricDialog(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                    TextButton(onClick = onCancel) {
-                        Text(
-                            text = "Batal",
-                            color = Color(0xFF8A2BE2),
-                            fontWeight = FontWeight.Bold
-                        )
+                    Row {
+                        if (status == BiometricDialogStatus.ERROR && onRetry != null) {
+                            TextButton(onClick = onRetry) {
+                                Text(
+                                    text = "Coba Lagi",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        TextButton(onClick = onCancel) {
+                            Text(
+                                text = "Batal",
+                                color = Color(0xFF8A2BE2),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }

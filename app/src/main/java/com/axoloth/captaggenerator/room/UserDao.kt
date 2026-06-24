@@ -17,6 +17,9 @@ interface UserDao {
     @Query("SELECT * FROM history ORDER BY timestamp DESC")
     fun getAllHistory(): Flow<List<HistoryEntity>>
 
+    @Query("SELECT * FROM history WHERE id = :historyId LIMIT 1")
+    suspend fun getHistoryById(historyId: Int): HistoryEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(history: HistoryEntity)
 

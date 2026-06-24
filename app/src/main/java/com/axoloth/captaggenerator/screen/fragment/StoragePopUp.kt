@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.axoloth.captaggenerator.logic.fragment.StorageViewModel
+import com.axoloth.captaggenerator.room.UserDao
 
 private val PopupBg = Color(0xFF2C2C2E)
 private val DeleteRed = Color(0xFFFF453A)
@@ -25,6 +26,7 @@ private val SecondaryText = Color(0xFF8E8E93)
 @Composable
 fun StoragePopUp(
     onDismiss: () -> Unit,
+    userDao: UserDao?,
     viewModel: StorageViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -90,6 +92,17 @@ fun StoragePopUp(
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
+
+                viewModel.errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = DeleteRed,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                    )
+                }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -101,7 +114,7 @@ fun StoragePopUp(
                     
                     Button(
                         onClick = {
-                            viewModel.performDeletion(context) { success ->
+                            viewModel.performDeletion(context, userDao) { success ->
                                 if (success) onDismiss()
                             }
                         },
